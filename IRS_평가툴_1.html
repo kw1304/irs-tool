@@ -828,8 +828,13 @@ input[type="range"]:focus { border: none; box-shadow: none; }
     </div>
 
     <div class="form-group">
-      <div class="form-label">계약 잔존 만기 <span>년</span></div>
-      <input type="number" id="maturity" value="3" min="1" max="30" step="1">
+      <div class="form-label">계약 잔존 만기</div>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <input type="number" id="maturity-years" value="3" min="0" max="30" step="1" style="flex:1">
+        <span style="font-size:0.82rem;color:var(--text2);font-weight:500;white-space:nowrap;flex-shrink:0">년</span>
+        <input type="number" id="maturity-months" value="0" min="0" max="11" step="1" style="flex:1">
+        <span style="font-size:0.82rem;color:var(--text2);font-weight:500;white-space:nowrap;flex-shrink:0">개월</span>
+      </div>
     </div>
 
     <div class="form-group">
@@ -883,12 +888,6 @@ input[type="range"]:focus { border: none; box-shadow: none; }
       </div>
     </div>
 
-    <div class="disclaimer-box">
-      <p>⚠ 본 툴은 국고채 수익률(한국은행 ECOS API)을 무위험이자율 근사값으로 사용합니다.</p>
-      <p>실무 IRS 공정가치 평가의 표준은 CD 91일물 기반 원화 스왑 곡선이며, Bloomberg 또는 Reuters에서 제공하는 IRS 호가 데이터를 사용해야 합니다.</p>
-      <p>본 산출값은 감사 참고용 근사치이며, 공식 평가보고서를 대체하지 않습니다.</p>
-    </div>
-
     <button class="btn-calc" onclick="calculate()">▶ 공정가치 산출</button>
   </div>
 
@@ -933,7 +932,7 @@ input[type="range"]:focus { border: none; box-shadow: none; }
           </div>
         </div>
 
-        <div class="result-main" style="grid-template-columns: repeat(2,1fr)">
+        <div class="result-main" style="grid-template-columns: repeat(3,1fr)">
           <div class="result-card">
             <div class="result-card-label">시장 공정금리 (Par Rate)</div>
             <div class="result-card-value" id="par-rate" style="color:var(--amber)">—</div>
@@ -943,6 +942,11 @@ input[type="range"]:focus { border: none; box-shadow: none; }
             <div class="result-card-label">계약금리 vs 시장금리</div>
             <div class="result-card-value" id="rate-spread">—</div>
             <div class="result-card-sub">계약금리 - 시장 Par Rate</div>
+          </div>
+          <div class="result-card">
+            <div class="result-card-label">CVA 반영 공정가치</div>
+            <div id="summary-cva-fv" style="font-size:0.78rem;font-weight:500;color:var(--text3);margin-bottom:0.3rem;letter-spacing:-0.01em">CVA 탭에서 산출 후 확인</div>
+            <div class="result-card-sub">공정가치 − CVA</div>
           </div>
         </div>
       </div>
@@ -1401,7 +1405,7 @@ function calculate() {
 
   const params = {
     notional: parseFloat(document.getElementById('notional').value.replace(/,/g, '')),
-    maturity: parseFloat(document.getElementById('maturity').value),
+    maturity: (parseInt(document.getElementById('maturity-years').value) || 0) + (parseInt(document.getElementById('maturity-months').value) || 0) / 12,
     frequency: parseInt(document.getElementById('frequency').value),
     fixed_rate: parseFloat(document.getElementById('fixed_rate').value),
     position: document.getElementById('position').value,
@@ -1574,6 +1578,15 @@ function calculate() {
   lastResult = result;
   lastSpotRates = spotRates;
   lastParams = params;
+  lastCVA = null;
+
+  // 공정가치 재산출 시 CVA 요약 카드 초기화
+  const summaryCvaFvEl = document.getElementById('summary-cva-fv');
+  if (summaryCvaFvEl) {
+    summaryCvaFvEl.textContent = 'CVA 탭에서 산출 후 확인';
+    summaryCvaFvEl.className = '';
+    summaryCvaFvEl.style.cssText = 'font-size:0.78rem;font-weight:500;color:var(--text3);margin-bottom:0.3rem;letter-spacing:-0.01em';
+  }
 }
 
 // ── CVA 관련 전역 변수 ──────────────────
@@ -1650,6 +1663,14 @@ function calculateCVA() {
   const adjEl = document.getElementById('cva-adj-fv');
   adjEl.textContent = fmt(adjFV);
   adjEl.className = 'result-card-value ' + (adjFV >= 0 ? 'positive' : 'negative');
+
+  // 결과 요약 탭 CVA 반영 공정가치 카드 업데이트
+  const summaryCvaFvEl = document.getElementById('summary-cva-fv');
+  if (summaryCvaFvEl) {
+    summaryCvaFvEl.textContent = fmt(adjFV);
+    summaryCvaFvEl.className = 'result-card-value ' + (adjFV >= 0 ? 'positive' : 'negative');
+    summaryCvaFvEl.style.cssText = '';
+  }
 
   document.getElementById('cva-ratio').textContent =
     (totalCVA / lastParams.notional * 100).toFixed(4) + '%';
