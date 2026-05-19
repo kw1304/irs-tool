@@ -1346,7 +1346,7 @@ function getForwardRate(t1, t2, spotRates) {
 function calculateIRS(params, spotRates, shift=0) {
   const { notional, maturity, frequency, fixed_rate, position } = params;
   const dt = 1 / frequency;
-  const periods = maturity * frequency;
+  const periods = Math.round(maturity * frequency);
   const cashflows = [];
 
   let fixedPV = 0, floatPV = 0;
