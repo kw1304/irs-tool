@@ -612,6 +612,8 @@ input[type="range"]:focus { border: none; box-shadow: none; }
   margin-bottom: 1.1rem;
 }
 
+.notes-toggle-arrow { display: none; }
+
 .notes-section { margin-bottom: 1.1rem; }
 
 .notes-section-title {
@@ -673,6 +675,106 @@ input[type="range"]:focus { border: none; box-shadow: none; }
   line-height: 1.65;
   font-weight: 500;
   letter-spacing: -0.01em;
+}
+
+/* ── 모바일 반응형 ── */
+@media (max-width: 768px) {
+  body { padding: 1rem; }
+
+  /* 헤더: 세로 배치 */
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding-bottom: 1.25rem;
+  }
+  .header-right { align-items: flex-start; width: 100%; }
+  .date-picker-group { width: 100%; }
+  .date-picker-group input[type="date"] { flex: 1; min-width: 0; }
+
+  /* 레이아웃: 3컬럼 → 1컬럼 */
+  .grid { grid-template-columns: 1fr; }
+
+  /* 패널 패딩 축소 */
+  .panel { padding: 1.25rem; border-radius: 12px; }
+
+  /* 입력칸: 16px(iOS 자동 확대 방지), 터치 높이 확보 */
+  input[type="number"],
+  input[type="text"],
+  select {
+    font-size: 16px;
+    padding: 0.75rem 0.95rem;
+    min-height: 44px;
+  }
+  input[type="date"] { font-size: 16px; min-height: 44px; }
+
+  /* 버튼: 터치 영역 */
+  .btn-calc { min-height: 48px; font-size: 1rem; margin-top: 1.25rem; }
+  .btn-export { min-height: 40px; }
+
+  /* 탭: 가로 스크롤 (스크롤바 숨김) */
+  .tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-left: -1.25rem;
+    margin-right: -1.25rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { font-size: 0.78rem; padding: 0.6rem 0.85rem; }
+
+  /* 결과 카드: 3컬럼 → 2컬럼 */
+  .result-main { grid-template-columns: repeat(2, 1fr) !important; }
+  .result-card-value { font-size: 1.1rem; }
+
+  /* CVA 카드: 4컬럼 → 2컬럼 */
+  .cva-cards { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* 테이블: 가로 스크롤 */
+  .table-section {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-left: -1.25rem;
+    margin-right: -1.25rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  .table-section table { min-width: 500px; }
+  table { font-size: 0.74rem; }
+  th, td { padding: 0.5rem 0.6rem; font-size: 0.74rem; }
+
+  /* 감사 항목: 레이블/값 세로 배치 */
+  .audit-item { flex-direction: column; gap: 0.2rem; }
+  .audit-item-value { text-align: left; max-width: 100% !important; }
+
+  /* 주의사항 패널: sticky 해제, 아코디언 전환 */
+  .notes-panel { position: static; max-height: none; overflow: visible; }
+  .notes-panel-title {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0;
+    user-select: none;
+  }
+  .notes-toggle-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: var(--bg3);
+    border-radius: 50%;
+    color: var(--text3);
+    font-size: 0.65rem;
+    transition: transform 0.22s;
+    flex-shrink: 0;
+  }
+  .notes-toggle-arrow.open { transform: rotate(180deg); }
+  .notes-panel-body { display: none; padding-top: 1rem; }
+  .notes-panel-body.open { display: block; }
 }
 
 /* ── 인쇄 ── */
@@ -990,7 +1092,7 @@ input[type="range"]:focus { border: none; box-shadow: none; }
 
       <div id="cva-result" style="display:none">
         <!-- 핵심 지표 -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;margin-bottom:1rem">
+        <div class="cva-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;margin-bottom:1rem">
           <div class="result-card">
             <div class="result-card-label">CVA</div>
             <div class="result-card-value negative" id="cva-value">—</div>
@@ -1049,8 +1151,12 @@ input[type="range"]:focus { border: none; box-shadow: none; }
 
   <!-- 주의사항 패널 -->
   <div class="panel notes-panel">
-    <div class="notes-panel-title">감사인 주의사항</div>
+    <div class="notes-panel-title" onclick="toggleNotes()">
+      감사인 주의사항
+      <span class="notes-toggle-arrow" id="notes-toggle-arrow">▼</span>
+    </div>
 
+    <div class="notes-panel-body open" id="notes-panel-body">
     <div class="notes-section">
       <div class="notes-section-title" style="color:var(--green)">✅ 감사 목적 적합</div>
       <ul class="notes-ok-list">
@@ -1162,6 +1268,7 @@ input[type="range"]:focus { border: none; box-shadow: none; }
     <div class="notes-conclusion">
       📌 본 툴은 감사 참고용 근사치 산출 도구입니다.<br>공식 평가보고서를 대체하지 않습니다.
     </div>
+    </div><!-- /notes-panel-body -->
   </div>
 
 </div>
@@ -1757,6 +1864,14 @@ function exportExcel() {
 }
 
 // ── 날짜 선택 & 수익률 곡선 자동 로드 ──────────────────────────────────────
+
+function toggleNotes() {
+  if (window.innerWidth > 768) return;
+  const body  = document.getElementById('notes-panel-body');
+  const arrow = document.getElementById('notes-toggle-arrow');
+  const open  = body.classList.toggle('open');
+  arrow.classList.toggle('open', open);
+}
 
 function updateCsaSlider(slider) {
   const val = parseInt(slider.value);
