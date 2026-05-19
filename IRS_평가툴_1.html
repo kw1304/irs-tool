@@ -45,7 +45,7 @@ body {
 }
 
 .header-left h1 {
-  font-size: 1.5rem;
+  font-size: clamp(0.75rem, 4vw, 1.5rem);
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.04em;
@@ -688,6 +688,7 @@ input[type="range"]:focus { border: none; box-shadow: none; }
     gap: 0.85rem;
     padding-bottom: 1.25rem;
   }
+  .header-left h1 { white-space: nowrap; }
   .header-right { align-items: flex-start; width: 100%; }
   .date-picker-group { width: 100%; }
   .date-picker-group input[type="date"] { flex: 1; min-width: 0; }
