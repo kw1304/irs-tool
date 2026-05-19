@@ -1,22 +1,19 @@
 @echo off
-setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 echo [auto_push] Starting in: %CD%
+git --version
 echo [auto_push] Checking every 5 seconds.
 echo.
 
 :loop
-echo [auto_push] Checking git status...
+echo [auto_push] --- Checking ---
+echo [auto_push] git status:
+git status --porcelain
+echo [auto_push] (end of status)
 
-set CHANGED=0
-for /f "usebackq tokens=*" %%i in (`git status --porcelain`) do (
-    set CHANGED=1
-)
-
-echo [auto_push] CHANGED=!CHANGED!
-
-if "!CHANGED!"=="1" (
+git status --porcelain | findstr /r "." >nul 2>&1
+if not errorlevel 1 (
     echo [auto_push] Changes detected. Pushing...
     git add .
     git commit -m "auto update"
