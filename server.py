@@ -17,7 +17,7 @@ import logging
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 except ImportError:
     pass
 
@@ -94,6 +94,58 @@ def get_rates():
         'source': 'ecos.bok.or.kr',
         'rates': rates
     })
+
+
+@app.route('/api/test', methods=['GET'])
+def test_ecos():
+    """ECOS API 직접 호출 테스트. ?item=010190000&date=YYYYMMDD 선택 가능."""
+    api_key = os.environ.get('ECOS_API_KEY', '').strip()
+    if not api_key:
+        return jsonify({'success': False, 'error': 'ECOS_API_KEY 환경변수가 설정되지 않았습니다'}), 500
+
+    item_code = request.args.get('item', '010190000').strip()   # 기본값: 1Y
+    date_str  = request.args.get('date', datetime.today().strftime('%Y%m%d')).strip()
+
+    url = (
+        f"{ECOS_BASE}/{api_key}/json/kr/1/1"
+        f"/817Y002/D/{date_str}/{date_str}/{item_code}"
+    )
+
+    result = {
+        'success': False,
+        'request': {'url': url.replace(api_key, '***'), 'item_code': item_code, 'date': date_str},
+    }
+
+    try:
+        resp = requests.get(url, timeout=10)
+        result['http_status'] = resp.status_code
+        result['raw_response'] = resp.json()
+
+        data = resp.json()
+        if 'RESULT' in data:
+            code = data['RESULT'].get('CODE', '')
+            msg  = data['RESULT'].get('MESSAGE', '')
+            result['ecos_code']    = code
+            result['ecos_message'] = msg
+            result['success']      = (code == 'INFO-200')   # 데이터 없음도 정상 케이스
+            result['error']        = None if code == 'INFO-200' else f'ECOS 오류 {code}: {msg}'
+        else:
+            rows = data.get('StatisticSearch', {}).get('row', [])
+            result['success']    = bool(rows)
+            result['row_count']  = len(rows)
+            result['first_row']  = rows[0] if rows else None
+            result['error']      = None if rows else '행 없음 (INFO-200 아닌 빈 응답)'
+
+    except requests.exceptions.Timeout:
+        result['error'] = 'ecos.bok.or.kr 응답 시간 초과 (10s)'
+    except requests.exceptions.ConnectionError as e:
+        result['error'] = f'연결 실패: {e}'
+    except ValueError as e:
+        result['error'] = f'JSON 파싱 실패: {e}'
+    except Exception as e:
+        result['error'] = f'예기치 않은 오류: {e}'
+
+    return jsonify(result), (200 if result['success'] else 502)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
