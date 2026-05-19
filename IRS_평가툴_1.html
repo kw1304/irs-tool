@@ -780,7 +780,7 @@ input[type="range"]:focus { border: none; box-shadow: none; }
     </div>
 
     <div class="disclaimer-box">
-      <p>⚠ 본 툴은 국고채 수익률(금융투자협회)을 무위험이자율 근사값으로 사용합니다.</p>
+      <p>⚠ 본 툴은 국고채 수익률(한국은행 ECOS API)을 무위험이자율 근사값으로 사용합니다.</p>
       <p>실무 IRS 공정가치 평가의 표준은 CD 91일물 기반 원화 스왑 곡선이며, Bloomberg 또는 Reuters에서 제공하는 IRS 호가 데이터를 사용해야 합니다.</p>
       <p>본 산출값은 감사 참고용 근사치이며, 공식 평가보고서를 대체하지 않습니다.</p>
     </div>
@@ -892,7 +892,7 @@ input[type="range"]:focus { border: none; box-shadow: none; }
         <div id="audit-items">
           <div class="audit-item">
             <span class="audit-item-label">수익률 곡선 출처</span>
-            <span class="audit-item-value" style="color:var(--amber)">⚠ 국고채 수익률 근사값 (금융투자협회) — 실무 표준은 CD 91일물 기반 원화 스왑 곡선</span>
+            <span class="audit-item-value" style="color:var(--amber)">⚠ 국고채 수익률 근사값 (한국은행 ECOS API, ecos.bok.or.kr) — 실무 표준은 CD 91일물 기반 원화 스왑 곡선</span>
           </div>
           <div class="audit-item">
             <span class="audit-item-label">평가 기준일</span>
@@ -1070,7 +1070,7 @@ input[type="range"]:focus { border: none; box-shadow: none; }
         <div class="notes-diff-title">수익률 곡선</div>
         <div class="notes-diff-row">
           <span class="notes-diff-label">본 툴</span>
-          <span class="notes-diff-val-tool">국고채 (금융투자협회)</span>
+          <span class="notes-diff-val-tool">국고채 (한국은행 ECOS API)</span>
         </div>
         <div class="notes-diff-row">
           <span class="notes-diff-label">실무</span>
@@ -1703,7 +1703,7 @@ function exportExcel() {
   summaryRows.push(
     [],
     ['[면책 고지]'],
-    ['본 툴은 국고채 수익률(금융투자협회)을 무위험이자율 근사값으로 사용합니다.'],
+    ['본 툴은 국고채 수익률(한국은행 ECOS API)을 무위험이자율 근사값으로 사용합니다.'],
     ['실무 IRS 공정가치 평가의 표준은 CD 91일물 기반 원화 스왑 곡선이며, Bloomberg 또는 Reuters에서 제공하는 IRS 호가 데이터를 사용해야 합니다.'],
     ['본 산출값은 감사 참고용 근사치이며, 공식 평가보고서를 대체하지 않습니다.'],
   );
@@ -1824,7 +1824,7 @@ async function loadRates(dateStr) {
       }
     });
 
-    statusEl.textContent = `✓ kofiabond ${dateStr} 최종호가 mid 반영`;
+    statusEl.textContent = `✓ ECOS ${dateStr} 국고채 수익률 반영`;
     statusEl.className   = 'rate-status ok';
 
     calculate(); // 자동 계산
