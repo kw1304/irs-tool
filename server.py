@@ -9,6 +9,7 @@ GET /api/rates?date=YYYYMMDD
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 import os
 import re
@@ -28,15 +29,15 @@ CORS(app)
 
 ECOS_BASE = "https://ecos.bok.or.kr/api/StatisticSearch"
 
-# 817Y002 국고채수익률 아이템코드 → 표준 만기 키
+# 817Y002 국고채수익률 실제 아이템코드 (StatisticItemList로 확인)
 ITEM_MAP = {
     "010190000": "1Y",
-    "010200000": "2Y",
-    "010210000": "3Y",
-    "010220000": "5Y",
-    "010230000": "10Y",
-    "010240000": "20Y",
-    "010250000": "30Y",
+    "010195000": "2Y",
+    "010200000": "3Y",
+    "010200001": "5Y",
+    "010210000": "10Y",
+    "010220000": "20Y",
+    "010230000": "30Y",
 }
 
 
@@ -116,46 +117,52 @@ def fetch_govbond_rates(date_str: str, api_key: str) -> tuple:
     return {}, date_str
 
 
-def _call_ecos(date_str: str, api_key: str) -> dict:
-    """ECOS StatisticSearch 단일 날짜 호출 → {만기: {ask, bid, mid}} 반환"""
+def _fetch_one(item_code: str, maturity: str, date_str: str, api_key: str) -> tuple:
+    """만기 하나의 수익률을 ECOS에서 조회. (item_code, maturity, value | None) 반환."""
     url = (
-        f"{ECOS_BASE}/{api_key}/json/kr/1/100"
-        f"/817Y002/DD/{date_str}/{date_str}"
+        f"{ECOS_BASE}/{api_key}/json/kr/1/1"
+        f"/817Y002/D/{date_str}/{date_str}/{item_code}"
     )
-    logger.info("ECOS 요청: date=%s", date_str)
-
     resp = requests.get(url, timeout=10)
     resp.raise_for_status()
-
     data = resp.json()
 
-    # ECOS는 오류 시 'RESULT' 키로 응답
+    # INFO-200: 해당 날짜 데이터 없음 (휴장일 등) — 정상 케이스
     if 'RESULT' in data:
         code = data['RESULT'].get('CODE', '')
         msg  = data['RESULT'].get('MESSAGE', '')
-        # CODE-100: 데이터 없음(정상), 그 외는 진짜 오류
-        if code != 'CODE-100':
-            raise ValueError(f'ECOS API 오류 {code}: {msg}')
-        return {}
+        if code == 'INFO-200':
+            return item_code, maturity, None
+        raise ValueError(f'ECOS API 오류 {code}: {msg}')
 
     rows = data.get('StatisticSearch', {}).get('row', [])
     if not rows:
-        return {}
+        return item_code, maturity, None
 
+    value_str = rows[0].get('DATA_VALUE', '').strip()
+    if not value_str:
+        return item_code, maturity, None
+
+    return item_code, maturity, round(float(value_str), 4)
+
+
+def _call_ecos(date_str: str, api_key: str) -> dict:
+    """7개 만기 아이템코드를 병렬 조회 → {만기: {ask, bid, mid}} 반환."""
+    logger.info("ECOS 병렬 조회: date=%s", date_str)
     rates = {}
-    for row in rows:
-        item_code = row.get('ITEM_CODE1', '')
-        value_str = row.get('DATA_VALUE', '').strip()
 
-        maturity = ITEM_MAP.get(item_code)
-        if not maturity or not value_str:
-            continue
-
-        try:
-            mid = round(float(value_str), 4)
-            rates[maturity] = {'ask': None, 'bid': None, 'mid': mid}
-        except ValueError:
-            logger.warning("수익률 파싱 실패: item=%s value=%s", item_code, value_str)
+    with ThreadPoolExecutor(max_workers=len(ITEM_MAP)) as executor:
+        futures = {
+            executor.submit(_fetch_one, item_code, maturity, date_str, api_key): maturity
+            for item_code, maturity in ITEM_MAP.items()
+        }
+        for future in as_completed(futures):
+            try:
+                _, maturity, value = future.result()
+                if value is not None:
+                    rates[maturity] = {'ask': None, 'bid': None, 'mid': value}
+            except Exception as e:
+                logger.warning("아이템 조회 실패: %s", e)
 
     return rates
 
