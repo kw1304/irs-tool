@@ -906,6 +906,7 @@ input[type="range"]:focus { border: none; box-shadow: none; }
       <div class="tab" onclick="switchTab('curve')">수익률 곡선</div>
       <div class="tab" onclick="switchTab('audit')">감사 체크포인트</div>
       <div class="tab" onclick="switchTab('cva')">CVA 분석</div>
+      <div class="tab" onclick="switchTab('hedge')">📊 위험회피 효과성</div>
     </div>
 
     <div class="tab-content active" id="tab-summary">
@@ -1153,6 +1154,130 @@ input[type="range"]:focus { border: none; box-shadow: none; }
       </div>
 
     </div>
+
+    <!-- 위험회피 효과성 탭 -->
+    <div class="tab-content" id="tab-hedge">
+
+      <!-- 위험회피 유형 배너 -->
+      <div id="hedge-type-banner" style="margin-bottom:1.25rem;padding:1rem 1.25rem;border-radius:12px;background:var(--bg3);border-left:4px solid var(--accent)">
+        <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.25rem;font-weight:500">위험회피 유형 (포지션 자동 연동)</div>
+        <div id="hedge-type-text" style="font-size:0.92rem;font-weight:600;color:var(--text);letter-spacing:-0.02em">공정가치 산출 후 자동 표시됩니다</div>
+      </div>
+
+      <!-- ① 정성적 테스트 -->
+      <div style="margin-bottom:1.5rem">
+        <div class="panel-title">① 정성적 테스트 (Qualitative Test)</div>
+        <div style="font-size:0.78rem;color:var(--text2);margin-bottom:1rem;padding:0.75rem 0.9rem;background:#EFF6FF;border-radius:8px;line-height:1.6;letter-spacing:-0.01em">
+          위험회피대상항목의 핵심 조건이 위험회피수단(IRS)과 모두 일치하면 완전 효과적으로 추정합니다.
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.85rem">
+          <div class="form-group" style="margin:0">
+            <div class="form-label">위험회피대상 명목원금 <span>원</span></div>
+            <input type="text" id="hedge-notional" placeholder="예: 10,000,000,000" inputmode="numeric">
+          </div>
+          <div class="form-group" style="margin:0">
+            <div class="form-label">위험회피대상 만기</div>
+            <div style="display:flex;align-items:center;gap:0.4rem">
+              <input type="number" id="hedge-years" min="0" max="30" step="1" placeholder="0" style="flex:1">
+              <span style="font-size:0.8rem;color:var(--text2);white-space:nowrap">년</span>
+              <input type="number" id="hedge-months" min="0" max="11" step="1" placeholder="0" style="flex:1">
+              <span style="font-size:0.8rem;color:var(--text2);white-space:nowrap">개월</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin:0">
+            <div class="form-label">변동금리 지수</div>
+            <input type="text" value="CD 91일물" disabled style="opacity:0.65">
+          </div>
+          <div class="form-group" style="margin:0">
+            <div class="form-label">이자 지급 주기</div>
+            <select id="hedge-frequency">
+              <option value="1">연 1회</option>
+              <option value="2">반기 1회</option>
+              <option value="4">분기 1회</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 고정금리 차입금 금리 (receive_fixed 전용) -->
+        <div id="hedge-loan-rate-group" style="display:none;margin-bottom:0.85rem">
+          <div class="form-group" style="margin:0">
+            <div class="form-label">고정금리 차입금 금리 <span>%</span></div>
+            <input type="number" id="hedge-loan-rate" value="4.00" step="0.01">
+          </div>
+        </div>
+
+        <button class="btn-calc" style="margin-top:0.5rem" onclick="runQualitativeTest()">▶ 정성적 테스트 실행</button>
+
+        <div id="qualitative-result" style="display:none;margin-top:1rem">
+          <div class="table-section" style="margin-top:0">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:left">조건</th>
+                  <th>위험회피수단 (IRS)</th>
+                  <th>위험회피대상</th>
+                  <th style="text-align:center">일치</th>
+                </tr>
+              </thead>
+              <tbody id="qualitative-tbody"></tbody>
+            </table>
+          </div>
+          <div id="qualitative-verdict" style="margin-top:0.85rem;padding:0.85rem 1.1rem;border-radius:10px;font-size:0.82rem;font-weight:600;letter-spacing:-0.02em;line-height:1.55"></div>
+        </div>
+      </div>
+
+      <!-- ② 정량적 테스트 -->
+      <div style="margin-bottom:1.5rem">
+        <div class="panel-title">② 정량적 테스트 — Dollar Offset Method</div>
+
+        <div style="font-size:0.78rem;color:var(--text2);margin-bottom:1rem;padding:0.75rem 0.9rem;background:var(--bg3);border-radius:8px;line-height:1.6;letter-spacing:-0.01em">
+          시나리오별 효과성 비율 = 위험회피수단 공정가치 변동 ÷ 위험회피대상 변동 × 100%<br>
+          판정 기준: <strong style="color:var(--green)">-125% ~ -80%</strong> = 효과적 &nbsp;|&nbsp; 범위 이탈 = 비효과적
+        </div>
+
+        <button class="btn-calc" onclick="runQuantitativeTest()">▶ Dollar Offset 테스트 실행</button>
+
+        <div id="quantitative-empty" style="text-align:center;padding:1.5rem;color:var(--text3);font-size:0.8rem;display:none">공정가치 산출 후 실행하세요</div>
+
+        <div id="quantitative-result" style="display:none;margin-top:1rem">
+          <div class="table-section" style="margin-top:0">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:left">시나리오</th>
+                  <th>IRS 공정가치 변동</th>
+                  <th>위험회피대상 변동</th>
+                  <th>효과성 비율</th>
+                  <th style="text-align:center">판정</th>
+                </tr>
+              </thead>
+              <tbody id="quantitative-tbody"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:0.55rem;font-size:0.71rem;color:var(--text3);line-height:1.55;padding:0 0.1rem">
+            ※ 위험회피대상 변동: 고정금리 지급 시 변동금리 차입금의 예상이자 PV 변동, 고정금리 수취 시 고정금리 차입금의 공정가치 변동
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ 최종 판정 -->
+      <div id="hedge-final-verdict" style="display:none;margin-bottom:1.5rem">
+        <div class="panel-title">③ 최종 판정</div>
+        <div id="hedge-verdict-box" style="padding:1.1rem 1.25rem;border-radius:12px;font-size:0.88rem;font-weight:600;line-height:1.65;letter-spacing:-0.02em"></div>
+      </div>
+
+      <!-- 감사 체크포인트 -->
+      <div id="hedge-audit-section" style="display:none">
+        <div class="panel-title">감사 체크포인트 (자동 생성)</div>
+        <div class="audit-box" style="border-left-color:var(--amber)">
+          <div class="audit-box-title">위험회피회계 적용 요건 점검</div>
+          <div id="hedge-audit-items"></div>
+        </div>
+      </div>
+
+    </div><!-- /tab-hedge -->
+
   </div>
 
   <!-- 주의사항 패널 -->
@@ -1387,10 +1512,11 @@ function calculateIRS(params, spotRates, shift=0) {
 }
 
 function switchTab(name) {
-  const names = ['summary','cashflow','curve','audit','cva'];
+  const names = ['summary','cashflow','curve','audit','cva','hedge'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i] === name));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'hedge') updateHedgeBanner();
 }
 
 function calculate() {
@@ -1574,11 +1700,13 @@ function calculate() {
     </div>
   `).join('');
 
-  // 전역 저장 (CVA 탭에서 활용)
+  // 전역 저장 (CVA / 위험회피 탭에서 활용)
   lastResult = result;
   lastSpotRates = spotRates;
   lastParams = params;
   lastCVA = null;
+
+  updateHedgeBanner();
 
   // 공정가치 재산출 시 CVA 요약 카드 초기화
   const summaryCvaFvEl = document.getElementById('summary-cva-fv');
@@ -1886,6 +2014,229 @@ function exportExcel() {
   XLSX.writeFile(wb, `IRS_평가결과_${dateVal}.xlsx`);
 }
 
+// ── 위험회피 효과성 탭 ────────────────────────────────────────────────────
+
+function updateHedgeBanner() {
+  if (!lastParams) return;
+  const pos = lastParams.position;
+  const bannerEl = document.getElementById('hedge-type-banner');
+  const textEl   = document.getElementById('hedge-type-text');
+  const loanGrp  = document.getElementById('hedge-loan-rate-group');
+  if (pos === 'pay_fixed') {
+    bannerEl.style.borderLeftColor = 'var(--accent)';
+    textEl.textContent = '위험회피대상: 변동금리 차입금 (현금흐름위험회피)';
+    loanGrp.style.display = 'none';
+  } else {
+    bannerEl.style.borderLeftColor = 'var(--green)';
+    textEl.textContent = '위험회피대상: 고정금리 차입금 (공정가치위험회피)';
+    loanGrp.style.display = 'block';
+  }
+}
+
+function fmtMaturity(m) {
+  const y = Math.floor(m);
+  const mo = Math.round((m - y) * 12);
+  return y + '년' + (mo > 0 ? ' ' + mo + '개월' : '');
+}
+
+function runQualitativeTest() {
+  if (!lastParams) { alert('먼저 공정가치를 산출하세요'); return; }
+  const p = lastParams;
+  const freqLabel = { 1: '연 1회', 2: '반기 1회', 4: '분기 1회' };
+
+  const hedgeNotional = parseFloat((document.getElementById('hedge-notional').value || '').replace(/,/g, ''));
+  const hedgeYears    = parseInt(document.getElementById('hedge-years').value)  || 0;
+  const hedgeMonths   = parseInt(document.getElementById('hedge-months').value) || 0;
+  const hedgeMaturity = hedgeYears + hedgeMonths / 12;
+  const hedgeFreq     = parseInt(document.getElementById('hedge-frequency').value);
+
+  const checks = [
+    {
+      name: '명목원금',
+      irs:   p.notional.toLocaleString('ko-KR') + '원',
+      hedge: isNaN(hedgeNotional) ? '미입력' : hedgeNotional.toLocaleString('ko-KR') + '원',
+      match: !isNaN(hedgeNotional) && Math.abs(hedgeNotional - p.notional) < 1,
+    },
+    {
+      name: '만기',
+      irs:   fmtMaturity(p.maturity),
+      hedge: hedgeYears + '년 ' + hedgeMonths + '개월',
+      match: Math.abs(hedgeMaturity - p.maturity) < 0.01,
+    },
+    {
+      name: '변동금리 지수',
+      irs:   'CD 91일물',
+      hedge: 'CD 91일물',
+      match: true,
+    },
+    {
+      name: '이자 지급 주기',
+      irs:   freqLabel[p.frequency],
+      hedge: freqLabel[hedgeFreq],
+      match: hedgeFreq === p.frequency,
+    },
+  ];
+
+  const tbody = document.getElementById('qualitative-tbody');
+  tbody.innerHTML = checks.map(c => `
+    <tr>
+      <td>${c.name}</td>
+      <td style="color:var(--accent)">${c.irs}</td>
+      <td style="color:var(--text2)">${c.hedge}</td>
+      <td style="text-align:center;font-size:1rem;font-weight:700;color:${c.match ? 'var(--green)' : 'var(--red)'}">${c.match ? '✓' : '✗'}</td>
+    </tr>
+  `).join('');
+
+  const allMatch = checks.every(c => c.match);
+  const verdictEl = document.getElementById('qualitative-verdict');
+  if (allMatch) {
+    verdictEl.style.cssText = 'margin-top:0.85rem;padding:0.85rem 1.1rem;border-radius:10px;font-size:0.82rem;font-weight:600;letter-spacing:-0.02em;line-height:1.55;background:#ECFDF5;color:#065F46;border-left:4px solid var(--green)';
+    verdictEl.textContent = '✓ 정성적 테스트 통과 — 완전 효과적 추정 (핵심 조건 전체 일치)';
+  } else {
+    verdictEl.style.cssText = 'margin-top:0.85rem;padding:0.85rem 1.1rem;border-radius:10px;font-size:0.82rem;font-weight:600;letter-spacing:-0.02em;line-height:1.55;background:#FFF7ED;color:#92400E;border-left:4px solid var(--amber)';
+    verdictEl.textContent = '⚠ 불일치 항목 존재 — 정량적 테스트 필요';
+  }
+  document.getElementById('qualitative-result').style.display = 'block';
+}
+
+function calcFixedLoanPV(loanRate, params, spotRates, shift) {
+  const { notional, maturity, frequency } = params;
+  const dt = 1 / frequency;
+  const periods = Math.round(maturity * frequency);
+  let pv = 0;
+  for (let i = 1; i <= periods; i++) {
+    const t   = i * dt;
+    const spot = interpolateSpot(t, spotRates) + shift;
+    const df  = 1 / Math.pow(1 + spot, t);
+    pv += notional * loanRate * dt * df;
+    if (i === periods) pv += notional * df;
+  }
+  return pv;
+}
+
+function runQuantitativeTest() {
+  if (!lastResult || !lastSpotRates || !lastParams) {
+    alert('먼저 공정가치를 산출하세요');
+    return;
+  }
+  const pos = lastParams.position;
+  let loanRate = null;
+  let baseLoanPV = null;
+
+  if (pos === 'receive_fixed') {
+    loanRate = parseFloat(document.getElementById('hedge-loan-rate').value) / 100;
+    if (isNaN(loanRate)) { alert('고정금리 차입금 금리를 입력하세요'); return; }
+    baseLoanPV = calcFixedLoanPV(loanRate, lastParams, lastSpotRates, 0);
+  }
+
+  const scenarios = [
+    { label: '+100bp', shift:  0.01 },
+    { label: '+50bp',  shift:  0.005 },
+    { label: '-50bp',  shift: -0.005 },
+    { label: '-100bp', shift: -0.01 },
+  ];
+
+  const results = scenarios.map(s => {
+    const scenResult = calculateIRS(lastParams, lastSpotRates, s.shift);
+    const irs_delta  = scenResult.fv - lastResult.fv;
+
+    let hedged_delta;
+    if (pos === 'pay_fixed') {
+      // 현금흐름위험회피: 변동금리 이자 PV 변동 (차입자 관점 — 부호 반전)
+      hedged_delta = -(scenResult.floatPV - lastResult.floatPV);
+    } else {
+      // 공정가치위험회피: 고정금리 차입금 공정가치 변동 (차입자 관점 — 부호 반전)
+      const scenLoanPV = calcFixedLoanPV(loanRate, lastParams, lastSpotRates, s.shift);
+      hedged_delta = -(scenLoanPV - baseLoanPV);
+    }
+
+    const ratio     = hedged_delta !== 0 ? irs_delta / hedged_delta * 100 : null;
+    const effective = ratio !== null && ratio >= -125 && ratio <= -80;
+    return { ...s, irs_delta, hedged_delta, ratio, effective };
+  });
+
+  const tbody = document.getElementById('quantitative-tbody');
+  tbody.innerHTML = results.map(r => {
+    const ratioText  = r.ratio !== null ? r.ratio.toFixed(1) + '%' : '—';
+    const ratioColor = r.effective ? 'var(--green)' : 'var(--red)';
+    const badge      = r.effective
+      ? `<span style="color:var(--green);font-weight:700">✓ 효과적</span>`
+      : `<span style="color:var(--red);font-weight:700">✗ 비효과적</span>`;
+    return `
+      <tr>
+        <td>${r.label}</td>
+        <td style="color:${r.irs_delta >= 0 ? 'var(--green)' : 'var(--red)'}">${fmt(r.irs_delta)}</td>
+        <td style="color:${r.hedged_delta >= 0 ? 'var(--green)' : 'var(--red)'}">${fmt(r.hedged_delta)}</td>
+        <td style="font-weight:600;color:${ratioColor}">${ratioText}</td>
+        <td style="text-align:center">${badge}</td>
+      </tr>
+    `;
+  }).join('');
+
+  document.getElementById('quantitative-result').style.display = 'block';
+
+  // 최종 판정
+  const allOk  = results.every(r => r.effective);
+  const someOk = results.some(r => r.effective);
+  const verdictBox = document.getElementById('hedge-verdict-box');
+  if (allOk) {
+    verdictBox.style.cssText = 'padding:1.1rem 1.25rem;border-radius:12px;font-size:0.88rem;font-weight:600;line-height:1.75;letter-spacing:-0.02em;background:#ECFDF5;color:#065F46;border-left:4px solid var(--green)';
+    verdictBox.innerHTML = '✓ <strong>K-IFRS 1109호 위험회피회계 적용 가능</strong><br><span style="font-weight:400;font-size:0.79rem">모든 시나리오에서 효과성 기준(-125% ~ -80%) 충족</span>';
+  } else if (someOk) {
+    verdictBox.style.cssText = 'padding:1.1rem 1.25rem;border-radius:12px;font-size:0.88rem;font-weight:600;line-height:1.75;letter-spacing:-0.02em;background:#FFF7ED;color:#92400E;border-left:4px solid var(--amber)';
+    verdictBox.innerHTML = '⚠ <strong>일부 시나리오에서 효과성 기준 이탈</strong><br><span style="font-weight:400;font-size:0.79rem">비효과적 부분은 즉시 당기손익 인식 필요 (K-IFRS 1109.6.5.11)</span>';
+  } else {
+    verdictBox.style.cssText = 'padding:1.1rem 1.25rem;border-radius:12px;font-size:0.88rem;font-weight:600;line-height:1.75;letter-spacing:-0.02em;background:#FFF5F5;color:#991B1B;border-left:4px solid var(--red)';
+    verdictBox.innerHTML = '✗ <strong>위험회피회계 적용 불가 — 비효과적 부분 즉시 손익 인식</strong><br><span style="font-weight:400;font-size:0.79rem">전 시나리오에서 효과성 기준(-125% ~ -80%) 미충족</span>';
+  }
+  document.getElementById('hedge-final-verdict').style.display = 'block';
+
+  // 감사 체크포인트
+  const hedgeType = pos === 'pay_fixed' ? '현금흐름위험회피' : '공정가치위험회피';
+  const qualPassed = document.getElementById('qualitative-result').style.display !== 'none' &&
+                     document.getElementById('qualitative-verdict').textContent.includes('통과');
+
+  const auditItems = [
+    {
+      label: '위험회피 지정 문서 구비 여부',
+      value: '⚠ 위험회피 지정일, 위험회피 전략, 효과성 평가 방법 기술 문서 필요 (K-IFRS 1109.6.4.1(b))',
+      color: 'var(--amber)',
+    },
+    {
+      label: '핵심 조건 일치 여부',
+      value: document.getElementById('qualitative-result').style.display !== 'none'
+        ? (qualPassed ? '✓ 정성적 테스트 통과 확인' : '⚠ 정성적 테스트 미통과 — 정량적 테스트 필수')
+        : '⚠ 정성적 테스트 미실행',
+      color: qualPassed ? 'var(--green)' : 'var(--amber)',
+    },
+    {
+      label: 'Dollar Offset 비율 적정성',
+      value: allOk
+        ? '✓ 전 시나리오 -125% ~ -80% 범위 충족'
+        : someOk
+          ? `⚠ 일부 이탈: ${results.filter(r => !r.effective).map(r => r.label).join(', ')}`
+          : `✗ 전 시나리오 효과성 기준 미충족`,
+      color: allOk ? 'var(--green)' : someOk ? 'var(--amber)' : 'var(--red)',
+    },
+    {
+      label: 'K-IFRS 1109호 준거 여부',
+      value: allOk
+        ? `✓ ${hedgeType} 위험회피회계 적용 요건 충족`
+        : `✗ 비효과적 부분은 당기손익으로 즉시 인식 (K-IFRS 1109.6.5.11)`,
+      color: allOk ? 'var(--green)' : 'var(--red)',
+    },
+  ];
+
+  document.getElementById('hedge-audit-items').innerHTML = auditItems.map(item => `
+    <div class="audit-item">
+      <span class="audit-item-label">${item.label}</span>
+      <span class="audit-item-value" style="color:${item.color};text-align:right;max-width:62%">${item.value}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('hedge-audit-section').style.display = 'block';
+}
+
 // ── 날짜 선택 & 수익률 곡선 자동 로드 ──────────────────────────────────────
 
 function toggleNotes() {
@@ -1989,6 +2340,13 @@ window.onload = () => {
     if (raw) notionalEl.value = parseInt(raw, 10).toLocaleString('ko-KR');
   });
 
+  // hedge-notional 천 단위 콤마
+  const hedgeNotionalEl = document.getElementById('hedge-notional');
+  hedgeNotionalEl.addEventListener('input', () => {
+    const raw = hedgeNotionalEl.value.replace(/,/g, '').replace(/[^0-9]/g, '');
+    if (raw) hedgeNotionalEl.value = parseInt(raw, 10).toLocaleString('ko-KR');
+  });
+
   // CSA 슬라이더 & EE 설명 초기화
   updateCsaSlider(document.getElementById('csa_slider'));
   updateEeDesc();
@@ -1998,4 +2356,3 @@ window.onload = () => {
 </script>
 </body>
 </html>
- 
