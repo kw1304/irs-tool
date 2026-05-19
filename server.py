@@ -1,15 +1,24 @@
 """
-금융투자협회 채권정보센터(kofiabond.or.kr) 국고채 수익률 스크래핑 서버
+한국은행 ECOS API 기반 국고채 수익률 서버
 GET /api/rates?date=YYYYMMDD
+
+환경변수: ECOS_API_KEY  (https://ecos.bok.or.kr 에서 발급)
+.env 파일 또는 시스템 환경변수로 설정
 """
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
-from xml.etree import ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
+import os
 import re
 import logging
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
@@ -17,18 +26,17 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-KOFIA_URL = "https://www.kofiabond.or.kr/proframeWeb/XMLSERVICES/"
+ECOS_BASE = "https://ecos.bok.or.kr/api/StatisticSearch"
 
-# 국고채 만기 매핑 (kofiabond 응답에서 사용되는 명칭 → 표준 키)
-GOVBOND_MAP = {
-    "국고채권(1년)":  "1Y",
-    "국고채권(2년)":  "2Y",
-    "국고채권(3년)":  "3Y",
-    "국고채권(5년)":  "5Y",
-    "국고채권(10년)": "10Y",
-    "국고채권(20년)": "20Y",
-    "국고채권(30년)": "30Y",
-    "국고채권(50년)": "50Y",
+# 817Y002 국고채수익률 아이템코드 → 표준 만기 키
+ITEM_MAP = {
+    "010190000": "1Y",
+    "010200000": "2Y",
+    "010210000": "3Y",
+    "010220000": "5Y",
+    "010230000": "10Y",
+    "010240000": "20Y",
+    "010250000": "30Y",
 }
 
 
@@ -45,7 +53,6 @@ def index():
 def get_rates():
     date_str = request.args.get('date', '').strip()
 
-    # 파라미터 검증
     if not date_str:
         return jsonify({'success': False, 'error': 'date 파라미터가 필요합니다 (형식: YYYYMMDD)'}), 400
 
@@ -57,12 +64,16 @@ def get_rates():
     except ValueError:
         return jsonify({'success': False, 'error': '유효하지 않은 날짜입니다'}), 400
 
+    api_key = os.environ.get('ECOS_API_KEY', '').strip()
+    if not api_key:
+        return jsonify({'success': False, 'error': 'ECOS_API_KEY 환경변수가 설정되지 않았습니다'}), 500
+
     try:
-        rates = fetch_govbond_rates(date_str)
+        rates, actual_date = fetch_govbond_rates(date_str, api_key)
     except requests.exceptions.Timeout:
-        return jsonify({'success': False, 'error': 'kofiabond.or.kr 응답 시간 초과'}), 504
+        return jsonify({'success': False, 'error': 'ecos.bok.or.kr 응답 시간 초과'}), 504
     except requests.exceptions.ConnectionError:
-        return jsonify({'success': False, 'error': 'kofiabond.or.kr 연결 실패'}), 503
+        return jsonify({'success': False, 'error': 'ecos.bok.or.kr 연결 실패'}), 503
     except ValueError as e:
         return jsonify({'success': False, 'error': str(e)}), 502
     except Exception as e:
@@ -72,111 +83,79 @@ def get_rates():
     if not rates:
         return jsonify({
             'success': False,
-            'error': f'{date_str} 날짜의 데이터가 없습니다 (휴장일이거나 미래 날짜일 수 있습니다)'
+            'error': f'{date_str} 및 직전 5일 데이터 없음 (미래 날짜이거나 장기 연휴일 수 있습니다)'
         }), 404
 
     return jsonify({
         'success': True,
-        'date': date_str,
-        'source': 'kofiabond.or.kr',
+        'date': actual_date,
+        'requested_date': date_str,
+        'source': 'ecos.bok.or.kr',
         'rates': rates
     })
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 스크래핑 로직
+# ECOS API 로직
 # ──────────────────────────────────────────────────────────────────────────────
 
-def build_xml(date_str: str) -> bytes:
-    """kofiabond XMLSERVICES 요청 바디 생성"""
-    xml = (
-        "<?xml version='1.0' encoding='utf-8'?>"
-        "<message>"
-        "<proframeHeader>"
-        "<pfmAppName>BIS-KOFIABOND</pfmAppName>"
-        "<pfmSvcName>BISLastAskPrcROPSrchSO</pfmSvcName>"
-        "<pfmFnName>listDay</pfmFnName>"
-        "</proframeHeader>"
-        "<systemHeader></systemHeader>"
-        f"<BISComDspDatDTO><val1>{date_str}</val1></BISComDspDatDTO>"
-        "</message>"
+def fetch_govbond_rates(date_str: str, api_key: str) -> tuple:
+    """ECOS에서 국고채 수익률 조회. 데이터 없으면 최대 5일 소급해 직전 영업일 반환."""
+    target = datetime.strptime(date_str, '%Y%m%d')
+
+    for delta in range(6):          # 당일(0) + 최대 5일 소급
+        candidate = target - timedelta(days=delta)
+        candidate_str = candidate.strftime('%Y%m%d')
+
+        rates = _call_ecos(candidate_str, api_key)
+        if rates:
+            if delta > 0:
+                logger.info("영업일 소급: %s → %s (%d일)", date_str, candidate_str, delta)
+            return rates, candidate_str
+
+    return {}, date_str
+
+
+def _call_ecos(date_str: str, api_key: str) -> dict:
+    """ECOS StatisticSearch 단일 날짜 호출 → {만기: {ask, bid, mid}} 반환"""
+    url = (
+        f"{ECOS_BASE}/{api_key}/json/kr/1/100"
+        f"/817Y002/DD/{date_str}/{date_str}"
     )
-    return xml.encode('utf-8')
+    logger.info("ECOS 요청: date=%s", date_str)
 
-
-def fetch_govbond_rates(date_str: str) -> dict:
-    """kofiabond.or.kr에서 국고채 수익률을 가져와 {만기: 수익률} 딕셔너리 반환"""
-    headers = {
-        'Content-Type': 'application/xml; charset=utf-8',
-        'User-Agent': (
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-            'AppleWebKit/537.36 (KHTML, like Gecko) '
-            'Chrome/124.0.0.0 Safari/537.36'
-        ),
-        'Referer': 'https://www.kofiabond.or.kr/',
-        'Origin':  'https://www.kofiabond.or.kr',
-    }
-
-    session = requests.Session()
-
-    # 세션 쿠키 획득 (HTTPS)
-    try:
-        session.get('https://www.kofiabond.or.kr/', timeout=10,
-                    headers={'User-Agent': headers['User-Agent']})
-    except Exception:
-        pass  # 쿠키 없어도 진행
-
-    logger.info("kofiabond 요청: date=%s", date_str)
-    resp = session.post(KOFIA_URL, data=build_xml(date_str), headers=headers, timeout=15)
+    resp = requests.get(url, timeout=10)
     resp.raise_for_status()
 
-    logger.debug("응답 내용: %s", resp.text[:500])
-    return parse_xml(resp.text)
+    data = resp.json()
 
+    # ECOS는 오류 시 'RESULT' 키로 응답
+    if 'RESULT' in data:
+        code = data['RESULT'].get('CODE', '')
+        msg  = data['RESULT'].get('MESSAGE', '')
+        # CODE-100: 데이터 없음(정상), 그 외는 진짜 오류
+        if code != 'CODE-100':
+            raise ValueError(f'ECOS API 오류 {code}: {msg}')
+        return {}
 
-def parse_xml(xml_text: str) -> dict:
-    """XML 응답에서 국고채 수익률 추출
-
-    kofiabond BISLastAskPrcROPSrchSO 응답 필드:
-      val1 = 채권명 (예: 국고채권(3년))
-      val3 = 매도 호가 수익률
-      val4 = 매수 호가 수익률
-      val5 = 전일 대비 변동
-    """
-    try:
-        root = ET.fromstring(xml_text.encode('utf-8'))
-    except ET.ParseError as e:
-        raise ValueError(f'XML 파싱 오류: {e}')
+    rows = data.get('StatisticSearch', {}).get('row', [])
+    if not rows:
+        return {}
 
     rates = {}
+    for row in rows:
+        item_code = row.get('ITEM_CODE1', '')
+        value_str = row.get('DATA_VALUE', '').strip()
 
-    for dto in root.findall('.//BISComDspDatDTO'):
-        vals = {c.tag: (c.text or '').strip() for c in dto}
-
-        bond_name = vals.get('val1', '')
-        ask_str   = vals.get('val3', '')
-        bid_str   = vals.get('val4', '')
-
-        if not bond_name:
-            continue
-
-        maturity = GOVBOND_MAP.get(bond_name)
-        if maturity is None:
-            for key, mat in GOVBOND_MAP.items():
-                if bond_name in key or key in bond_name:
-                    maturity = mat
-                    break
-
-        if maturity is None:
+        maturity = ITEM_MAP.get(item_code)
+        if not maturity or not value_str:
             continue
 
         try:
-            ask = round(float(ask_str), 4) if ask_str else None
-            bid = round(float(bid_str), 4) if bid_str else None
-            mid = round((ask + bid) / 2, 4) if (ask is not None and bid is not None) else None
-            rates[maturity] = {'ask': ask, 'bid': bid, 'mid': mid}
+            mid = round(float(value_str), 4)
+            rates[maturity] = {'ask': None, 'bid': None, 'mid': mid}
         except ValueError:
-            logger.warning("수익률 파싱 실패: bond=%s ask=%s bid=%s", bond_name, ask_str, bid_str)
+            logger.warning("수익률 파싱 실패: item=%s value=%s", item_code, value_str)
 
     return rates
 
