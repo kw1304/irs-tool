@@ -547,6 +547,49 @@ input[type="date"]:focus {
   letter-spacing: -0.02em;
 }
 
+/* ── CSA 담보 슬라이더 ── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  transition: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(49,130,246,0.35);
+  transition: transform 0.1s;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(49,130,246,0.35);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+input[type="range"]:focus { border: none; box-shadow: none; }
+
 /* ── 주의사항 패널 ── */
 .notes-panel {
   align-self: start;
@@ -914,18 +957,27 @@ input[type="date"]:focus {
         <div style="margin-top:0.75rem;display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem">
           <div class="form-group" style="margin:0">
             <div class="form-label">EE 계산 방식</div>
-            <select id="ee_method" style="font-size:0.8rem">
+            <select id="ee_method" style="font-size:0.8rem" onchange="updateEeDesc()">
               <option value="current">현재 노출 기준 (Current Exposure)</option>
               <option value="potential">잠재 최대 노출 (PFE +30%)</option>
             </select>
+            <div id="ee-desc" style="margin-top:0.45rem;font-size:0.67rem;color:var(--text3);line-height:1.55;padding:0 0.1rem">
+              각 시점의 순현재가치 중 양수만 반영. 음수는 0 처리 (손실 없음)
+            </div>
           </div>
           <div class="form-group" style="margin:0">
-            <div class="form-label">담보 약정 (CSA)</div>
-            <select id="csa_type" style="font-size:0.8rem">
-              <option value="none">없음 (No CSA)</option>
-              <option value="partial">부분 담보 (50%)</option>
-              <option value="full">완전 담보 (CVA ≈ 0)</option>
-            </select>
+            <div class="form-label" style="display:flex;align-items:center;gap:0.4rem">
+              담보 비율 (CSA)
+              <span id="csa_val" style="color:var(--accent);font-weight:700;font-size:0.82rem">0%</span>
+            </div>
+            <div style="padding:0.6rem 0 0.25rem">
+              <input type="range" id="csa_slider" min="0" max="100" value="0" step="5" oninput="updateCsaSlider(this)">
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text3);margin-top:0.15rem">
+              <span>0% 없음</span>
+              <span>50%</span>
+              <span>100% ≈0</span>
+            </div>
           </div>
         </div>
         <button class="btn-calc" style="margin-top:0.75rem" onclick="calculateCVA()">▶ CVA 산출</button>
@@ -1079,7 +1131,7 @@ input[type="date"]:focus {
         <div class="notes-diff-note">→ Fixing 구간 오차 발생 가능</div>
       </div>
 
-      <div class="notes-diff-item" style="margin-bottom:0">
+      <div class="notes-diff-item">
         <div class="notes-diff-title">CVA 신용스프레드</div>
         <div class="notes-diff-row">
           <span class="notes-diff-label">본 툴</span>
@@ -1090,6 +1142,20 @@ input[type="date"]:focus {
           <span class="notes-diff-val-real">Bloomberg CDS 호가</span>
         </div>
         <div class="notes-diff-note">→ 입력값 적정성 감사인 별도 검증 필요</div>
+      </div>
+
+      <div class="notes-diff-item" style="margin-bottom:0">
+        <div class="notes-diff-title">EE 계산 방식</div>
+        <div class="notes-diff-row">
+          <span class="notes-diff-label">본 툴</span>
+          <span class="notes-diff-val-tool">Current Exposure 또는 PFE 단순 근사</span>
+        </div>
+        <div class="notes-diff-row">
+          <span class="notes-diff-label">실무</span>
+          <span class="notes-diff-val-real">Hull-White MC 시뮬레이션 EPE</span>
+        </div>
+        <div class="notes-diff-note">바젤 III / K-IFRS 1113호 기준</div>
+        <div class="notes-diff-note">→ 엄밀한 CVA 산출은 Bloomberg SWPM 등 전문 시스템 필요</div>
       </div>
     </div>
 
@@ -1416,11 +1482,11 @@ function calculateCVA() {
   const creditSpread = parseFloat(document.getElementById('credit_spread').value) / 10000;
   const recoveryRate = parseFloat(document.getElementById('recovery_rate').value) / 100;
   const eeMethod = document.getElementById('ee_method').value;
-  const csaType = document.getElementById('csa_type').value;
+  const csaPct = parseInt(document.getElementById('csa_slider').value);
   const lgd = 1 - recoveryRate;
 
-  // CSA 담보 조정
-  const csaFactor = csaType === 'full' ? 0 : csaType === 'partial' ? 0.5 : 1.0;
+  // CSA 담보 조정 (슬라이더 0%=무담보, 100%=완전담보)
+  const csaFactor = 1 - csaPct / 100;
 
   // 위험률 (Hazard Rate) = 신용스프레드 / LGD
   const hazard = creditSpread / lgd;
@@ -1555,10 +1621,10 @@ function calculateCVA() {
     },
     {
       label: '담보 약정(CSA) 효과',
-      value: csaType === 'full' ? '완전 담보 — CVA 무시 가능'
-           : csaType === 'partial' ? `부분 담보 50% 적용 — CVA ${fmt(totalCVA/0.5*0.5)} 절감`
-           : '담보 없음 — CVA 전액 반영 필요',
-      color: csaType === 'none' ? 'var(--red)' : 'var(--green)',
+      value: csaPct === 100 ? '✓ 완전 담보 — CVA 무시 가능'
+           : csaPct === 0   ? '담보 없음 — CVA 전액 반영 필요'
+           : `부분 담보 ${csaPct}% 적용`,
+      color: csaPct === 0 ? 'var(--red)' : 'var(--green)',
     },
     {
       label: '신용스프레드 출처',
@@ -1692,6 +1758,21 @@ function exportExcel() {
 
 // ── 날짜 선택 & 수익률 곡선 자동 로드 ──────────────────────────────────────
 
+function updateCsaSlider(slider) {
+  const val = parseInt(slider.value);
+  const pct = val + '%';
+  slider.style.background =
+    `linear-gradient(to right, var(--accent) ${pct}, var(--border) ${pct})`;
+  document.getElementById('csa_val').textContent = pct;
+}
+
+function updateEeDesc() {
+  const method = document.getElementById('ee_method').value;
+  document.getElementById('ee-desc').textContent = method === 'current'
+    ? '각 시점의 순현재가치 중 양수만 반영. 음수는 0 처리 (손실 없음)'
+    : 'Current Exposure에 30% 가산. 미래 시장변동 잠재 위험 반영 (보수적 접근)';
+}
+
 function todayString() {
   return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 }
@@ -1769,6 +1850,10 @@ window.onload = () => {
     const raw = notionalEl.value.replace(/,/g, '').replace(/[^0-9]/g, '');
     if (raw) notionalEl.value = parseInt(raw, 10).toLocaleString('ko-KR');
   });
+
+  // CSA 슬라이더 & EE 설명 초기화
+  updateCsaSlider(document.getElementById('csa_slider'));
+  updateEeDesc();
 
   loadRates(todayString()); // 페이지 로드 시 오늘 날짜로 자동 로드
 };
