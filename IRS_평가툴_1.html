@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRS 공정가치 평가 툴</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e17;
+  --bg2: #111827;
+  --bg3: #1a2235;
+  --border: #1e3a5f;
+  --accent: #0ea5e9;
+  --accent2: #38bdf8;
+  --green: #10b981;
+  --red: #f43f5e;
+  --amber: #f59e0b;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #475569;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans KR', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.header {
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.5rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.header-left h1 {
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--accent2);
+  letter-spacing: -0.02em;
+}
+
+.header-left p {
+  font-size: 0.8rem;
+  color: var(--text3);
+  margin-top: 0.3rem;
+  font-family: var(--mono);
+}
+
+.badge {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  color: var(--text3);
+  border-radius: 2px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 1.5rem;
+  max-width: 1200px;
+}
+
+.panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.5rem;
+}
+
+.panel-title {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.panel-title::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  background: var(--accent);
+  display: block;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  font-size: 0.75rem;
+  color: var(--text2);
+  margin-bottom: 0.4rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.form-label span {
+  color: var(--text3);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
+
+input[type="number"], select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  border-radius: 3px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input[type="number"]:focus, select:focus {
+  border-color: var(--accent);
+}
+
+.section-divider {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 1.25rem 0 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.curve-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.curve-input-item label {
+  font-size: 0.7rem;
+  color: var(--text3);
+  font-family: var(--mono);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.btn-calc {
+  width: 100%;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-top: 1.25rem;
+  letter-spacing: 0.05em;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.btn-calc:hover { background: var(--accent2); }
+.btn-calc:active { transform: scale(0.99); }
+
+/* 결과 패널 */
+.result-main {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.result-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1rem;
+}
+
+.result-card-label {
+  font-size: 0.65rem;
+  color: var(--text3);
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.result-card-value {
+  font-family: var(--mono);
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.result-card-sub {
+  font-size: 0.65rem;
+  color: var(--text3);
+  font-family: var(--mono);
+  margin-top: 0.25rem;
+}
+
+.positive { color: var(--green); }
+.negative { color: var(--red); }
+.neutral { color: var(--accent2); }
+
+.table-section { margin-top: 1.5rem; }
+
+.table-title {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+th {
+  text-align: right;
+  padding: 0.5rem 0.75rem;
+  color: var(--text3);
+  font-weight: 400;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+
+th:first-child { text-align: left; }
+
+td {
+  padding: 0.5rem 0.75rem;
+  text-align: right;
+  border-bottom: 1px solid rgba(30,58,95,0.4);
+  color: var(--text2);
+}
+
+td:first-child { text-align: left; color: var(--text3); }
+
+tr:last-child td { border-bottom: none; }
+
+tr.total-row td {
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.chart-area {
+  margin-top: 1.5rem;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1rem;
+}
+
+canvas { width: 100% !important; }
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text3);
+}
+
+.empty-state .icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  opacity: 0.3;
+}
+
+.empty-state p {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.audit-box {
+  margin-top: 1.5rem;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--amber);
+  border-radius: 3px;
+  padding: 1rem;
+}
+
+.audit-box-title {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--amber);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.audit-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(30,58,95,0.4);
+  font-size: 0.75rem;
+}
+
+.audit-item:last-child { border-bottom: none; }
+.audit-item-label { color: var(--text3); font-family: var(--mono); }
+.audit-item-value { color: var(--text); font-family: var(--mono); }
+
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 0.6rem 1.2rem;
+  color: var(--text3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s;
+}
+
+.tab.active {
+  color: var(--accent2);
+  border-bottom-color: var(--accent);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── 날짜 선택 & API 로딩 ── */
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.date-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.date-label {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text3);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+input[type="date"] {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.4rem 0.65rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  color-scheme: dark;
+}
+
+input[type="date"]:focus { border-color: var(--accent); }
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.rate-status {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  min-height: 0.9rem;
+}
+.rate-status.ok  { color: var(--green); }
+.rate-status.err { color: var(--red); }
+.rate-status.loading { color: var(--text3); }
+
+@keyframes fill-flash {
+  0%   { border-color: var(--accent); background: rgba(14,165,233,0.12); color: var(--accent2); }
+  100% { border-color: var(--border); background: var(--bg3);            color: var(--text); }
+}
+.auto-filled { animation: fill-flash 2s ease-out forwards; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>IRS Fair Value Calculator</h1>
+    <p>Interest Rate Swap — Discounted Cash Flow Model</p>
+  </div>
+  <div class="header-right">
+    <div class="date-picker-group">
+      <span class="date-label">평가기준일</span>
+      <input type="date" id="eval-date">
+      <div class="spinner" id="rate-spinner" style="display:none"></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:1rem">
+      <div class="rate-status" id="rate-status"></div>
+      <div class="badge">KRW · DCF · v1.0</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid">
+  <!-- 입력 패널 -->
+  <div class="panel">
+    <div class="panel-title">계약 조건</div>
+
+    <div class="form-group">
+      <div class="form-label">명목 원금 <span>원</span></div>
+      <input type="number" id="notional" value="10000000000" step="100000000">
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">계약 잔존 만기 <span>년</span></div>
+      <input type="number" id="maturity" value="3" min="1" max="30" step="1">
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">이자 지급 주기 <span></span></div>
+      <select id="frequency">
+        <option value="1">연 1회</option>
+        <option value="2">반기 1회</option>
+        <option value="4">분기 1회</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">계약 고정금리 <span>%</span></div>
+      <input type="number" id="fixed_rate" value="4.00" step="0.01">
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">포지션</div>
+      <select id="position">
+        <option value="pay_fixed">고정금리 지급 (변동 수취)</option>
+        <option value="receive_fixed">고정금리 수취 (변동 지급)</option>
+      </select>
+    </div>
+
+    <div class="section-divider">수익률 곡선 (KRW)</div>
+
+    <div class="curve-inputs">
+      <div class="curve-input-item">
+        <label>1Y (%)</label>
+        <input type="number" id="r1" value="3.50" step="0.01">
+      </div>
+      <div class="curve-input-item">
+        <label>2Y (%)</label>
+        <input type="number" id="r2" value="3.80" step="0.01">
+      </div>
+      <div class="curve-input-item">
+        <label>3Y (%)</label>
+        <input type="number" id="r3" value="4.00" step="0.01">
+      </div>
+      <div class="curve-input-item">
+        <label>5Y (%)</label>
+        <input type="number" id="r5" value="4.20" step="0.01">
+      </div>
+      <div class="curve-input-item">
+        <label>7Y (%)</label>
+        <input type="number" id="r7" value="4.35" step="0.01">
+      </div>
+      <div class="curve-input-item">
+        <label>10Y (%)</label>
+        <input type="number" id="r10" value="4.50" step="0.01">
+      </div>
+    </div>
+
+    <button class="btn-calc" onclick="calculate()">▶ 공정가치 산출</button>
+  </div>
+
+  <!-- 결과 패널 -->
+  <div class="panel" id="result-panel">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('summary')">결과 요약</div>
+      <div class="tab" onclick="switchTab('cashflow')">현금흐름 상세</div>
+      <div class="tab" onclick="switchTab('curve')">수익률 곡선</div>
+      <div class="tab" onclick="switchTab('audit')">감사 체크포인트</div>
+      <div class="tab" onclick="switchTab('cva')">CVA 분석</div>
+    </div>
+
+    <div class="tab-content active" id="tab-summary">
+      <div class="empty-state" id="empty-state">
+        <div class="icon">⌗</div>
+        <p>계약 조건 입력 후 산출 버튼을 클릭하세요</p>
+      </div>
+      <div id="summary-content" style="display:none">
+        <div class="result-main">
+          <div class="result-card">
+            <div class="result-card-label">공정가치</div>
+            <div class="result-card-value" id="fv-value">—</div>
+            <div class="result-card-sub" id="fv-sub">—</div>
+          </div>
+          <div class="result-card">
+            <div class="result-card-label">고정 레그 PV</div>
+            <div class="result-card-value neutral" id="fixed-pv">—</div>
+            <div class="result-card-sub">고정금리 지급 현재가치</div>
+          </div>
+          <div class="result-card">
+            <div class="result-card-label">변동 레그 PV</div>
+            <div class="result-card-value neutral" id="float-pv">—</div>
+            <div class="result-card-sub">변동금리 수취 현재가치</div>
+          </div>
+        </div>
+
+        <div class="result-main" style="grid-template-columns: repeat(2,1fr)">
+          <div class="result-card">
+            <div class="result-card-label">시장 공정금리 (Par Rate)</div>
+            <div class="result-card-value" id="par-rate" style="color:var(--amber)">—</div>
+            <div class="result-card-sub">현재 시장 기준 at-the-money 금리</div>
+          </div>
+          <div class="result-card">
+            <div class="result-card-label">계약금리 vs 시장금리</div>
+            <div class="result-card-value" id="rate-spread">—</div>
+            <div class="result-card-sub">계약금리 - 시장 Par Rate</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-cashflow">
+      <div class="table-section">
+        <div class="table-title">기간별 현금흐름 및 현재가치</div>
+        <table id="cf-table">
+          <thead>
+            <tr>
+              <th>시점</th>
+              <th>할인율(현물)</th>
+              <th>선도금리</th>
+              <th>고정 CF</th>
+              <th>변동 CF</th>
+              <th>순 CF</th>
+              <th>할인계수</th>
+              <th>순 CF PV</th>
+            </tr>
+          </thead>
+          <tbody id="cf-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-curve">
+      <div class="chart-area">
+        <div class="table-title">현물이자율 곡선 (Bootstrapping)</div>
+        <canvas id="curve-chart" height="200"></canvas>
+      </div>
+      <div class="table-section" style="margin-top:1rem">
+        <div class="table-title">현물이자율 & 선도이자율</div>
+        <table id="rate-table">
+          <thead>
+            <tr>
+              <th>만기</th>
+              <th>시장금리(입력)</th>
+              <th>현물이자율(Spot)</th>
+              <th>선도이자율(Forward)</th>
+            </tr>
+          </thead>
+          <tbody id="rate-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-audit">
+      <div class="audit-box">
+        <div class="audit-box-title">감사인 체크포인트</div>
+        <div id="audit-items">
+          <div class="audit-item">
+            <span class="audit-item-label">수익률 곡선 출처</span>
+            <span class="audit-item-value">Bloomberg KOTBFIX / 한국금융투자협회</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-item-label">평가 기준일</span>
+            <span class="audit-item-value" id="audit-date">—</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-item-label">계약 고정금리</span>
+            <span class="audit-item-value" id="audit-fixed">—</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-item-label">시장 Par Rate</span>
+            <span class="audit-item-value" id="audit-par">—</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-item-label">금리 괴리 (감사 위험신호)</span>
+            <span class="audit-item-value" id="audit-spread">—</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-item-label">CVA 반영 여부</span>
+            <span class="audit-item-value" style="color:var(--amber)">별도 검토 필요 (K-IFRS 1113호)</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-item-label">OIS 할인 적용 여부</span>
+            <span class="audit-item-value" style="color:var(--amber)">계약 조건 확인 필요</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="audit-box" style="border-left-color: var(--accent); margin-top:1rem">
+        <div class="audit-box-title" style="color:var(--accent)">민감도 분석 (할인율 ±1%)</div>
+        <div id="sensitivity-items"></div>
+      </div>
+    </div>
+    <!-- CVA 탭 -->
+    <div class="tab-content" id="tab-cva">
+
+      <!-- CVA 입력 -->
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:1rem;margin-bottom:1rem;">
+        <div class="panel-title" style="margin-bottom:1rem">거래 상대방 신용 정보</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem">
+          <div class="form-group" style="margin:0">
+            <div class="form-label">신용등급</div>
+            <select id="credit_grade" onchange="updateSpreadFromGrade()" style="font-size:0.8rem">
+              <option value="0.003">AAA (30bp)</option>
+              <option value="0.005">AA (50bp)</option>
+              <option value="0.008" selected>A (80bp)</option>
+              <option value="0.015">BBB (150bp)</option>
+              <option value="0.030">BB (300bp)</option>
+              <option value="0.060">B (600bp)</option>
+              <option value="custom">직접 입력</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <div class="form-label">신용스프레드 <span>%</span></div>
+            <input type="number" id="credit_spread" value="0.80" step="0.01" min="0">
+          </div>
+          <div class="form-group" style="margin:0">
+            <div class="form-label">회수율 (Recovery Rate) <span>%</span></div>
+            <input type="number" id="recovery_rate" value="40" step="1" min="0" max="100">
+          </div>
+        </div>
+        <div style="margin-top:0.75rem;display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem">
+          <div class="form-group" style="margin:0">
+            <div class="form-label">EE 계산 방식</div>
+            <select id="ee_method" style="font-size:0.8rem">
+              <option value="current">현재 노출 기준 (Current Exposure)</option>
+              <option value="potential">잠재 최대 노출 (PFE +30%)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <div class="form-label">담보 약정 (CSA)</div>
+            <select id="csa_type" style="font-size:0.8rem">
+              <option value="none">없음 (No CSA)</option>
+              <option value="partial">부분 담보 (50%)</option>
+              <option value="full">완전 담보 (CVA ≈ 0)</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-calc" style="margin-top:0.75rem" onclick="calculateCVA()">▶ CVA 산출</button>
+      </div>
+
+      <!-- CVA 결과 -->
+      <div id="cva-empty" style="text-align:center;padding:2rem;color:var(--text3);font-family:var(--mono);font-size:0.8rem">
+        계약 공정가치를 먼저 산출하세요
+      </div>
+
+      <div id="cva-result" style="display:none">
+        <!-- 핵심 지표 -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;margin-bottom:1rem">
+          <div class="result-card">
+            <div class="result-card-label">CVA</div>
+            <div class="result-card-value negative" id="cva-value">—</div>
+            <div class="result-card-sub">신용가치조정</div>
+          </div>
+          <div class="result-card">
+            <div class="result-card-label">CVA-조정 공정가치</div>
+            <div class="result-card-value" id="cva-adj-fv">—</div>
+            <div class="result-card-sub">FV - CVA</div>
+          </div>
+          <div class="result-card">
+            <div class="result-card-label">CVA / 명목원금</div>
+            <div class="result-card-value" id="cva-ratio" style="color:var(--amber)">—</div>
+            <div class="result-card-sub">상대적 중요도</div>
+          </div>
+          <div class="result-card">
+            <div class="result-card-label">부도확률 (만기 기준)</div>
+            <div class="result-card-value" id="cva-pd" style="color:var(--amber)">—</div>
+            <div class="result-card-sub">누적 PD</div>
+          </div>
+        </div>
+
+        <!-- CVA 상세 테이블 -->
+        <div class="table-section">
+          <div class="table-title">기간별 CVA 분해</div>
+          <table>
+            <thead>
+              <tr>
+                <th>시점</th>
+                <th>기대 익스포저 (EE)</th>
+                <th>한계 부도확률 (dPD)</th>
+                <th>LGD</th>
+                <th>할인계수</th>
+                <th>CVA 기여분</th>
+              </tr>
+            </thead>
+            <tbody id="cva-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- CVA 민감도 -->
+        <div class="audit-box" style="margin-top:1rem;border-left-color:var(--red)">
+          <div class="audit-box-title" style="color:var(--red)">CVA 민감도 분석</div>
+          <div id="cva-sensitivity"></div>
+        </div>
+
+        <!-- 감사 코멘트 -->
+        <div class="audit-box" style="margin-top:1rem;border-left-color:var(--amber)">
+          <div class="audit-box-title">CVA 감사 체크포인트</div>
+          <div id="cva-audit-items"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+let chartInstance = null;
+
+function fmt(n) {
+  if (Math.abs(n) >= 1e8) return (n/1e8).toFixed(2) + '억원';
+  if (Math.abs(n) >= 1e4) return (n/1e4).toFixed(0) + '만원';
+  return n.toFixed(0) + '원';
+}
+
+function fmtPct(n) { return (n*100).toFixed(4) + '%'; }
+
+function interpolateRate(t, marketRates) {
+  const keys = Object.keys(marketRates).map(Number).sort((a,b)=>a-b);
+  if (t <= keys[0]) return marketRates[keys[0]];
+  if (t >= keys[keys.length-1]) return marketRates[keys[keys.length-1]];
+  for (let i = 0; i < keys.length-1; i++) {
+    if (t >= keys[i] && t <= keys[i+1]) {
+      const w = (t - keys[i]) / (keys[i+1] - keys[i]);
+      return marketRates[keys[i]] * (1-w) + marketRates[keys[i+1]] * w;
+    }
+  }
+}
+
+function bootstrap(marketRates) {
+  const keys = Object.keys(marketRates).map(Number).sort((a,b)=>a-b);
+  const spotRates = {};
+
+  for (const T of keys) {
+    const r = marketRates[T];
+    if (T === 1) {
+      spotRates[T] = r;
+    } else {
+      // 쿠폰부 채권 부트스트래핑
+      let pvCoupons = 0;
+      for (let t = 1; t < T; t++) {
+        const st = interpolateSpot(t, spotRates);
+        pvCoupons += r / Math.pow(1 + st, t);
+      }
+      spotRates[T] = Math.pow((1 + r) / (1 - pvCoupons), 1/T) - 1;
+    }
+  }
+  return spotRates;
+}
+
+function interpolateSpot(t, spotRates) {
+  const keys = Object.keys(spotRates).map(Number).sort((a,b)=>a-b);
+  if (keys.length === 0) return 0;
+  if (t <= keys[0]) return spotRates[keys[0]];
+  if (t >= keys[keys.length-1]) return spotRates[keys[keys.length-1]];
+  for (let i = 0; i < keys.length-1; i++) {
+    if (t >= keys[i] && t <= keys[i+1]) {
+      const w = (t - keys[i]) / (keys[i+1] - keys[i]);
+      return spotRates[keys[i]] * (1-w) + spotRates[keys[i+1]] * w;
+    }
+  }
+  return spotRates[keys[keys.length-1]];
+}
+
+function getForwardRate(t1, t2, spotRates) {
+  const s1 = interpolateSpot(t1, spotRates);
+  const s2 = interpolateSpot(t2, spotRates);
+  return Math.pow(Math.pow(1+s2, t2) / Math.pow(1+s1, t1), 1/(t2-t1)) - 1;
+}
+
+function calculateIRS(params, spotRates, shift=0) {
+  const { notional, maturity, frequency, fixed_rate, position } = params;
+  const dt = 1 / frequency;
+  const periods = maturity * frequency;
+  const cashflows = [];
+
+  let fixedPV = 0, floatPV = 0;
+
+  for (let i = 1; i <= periods; i++) {
+    const t = i * dt;
+    const t_prev = (i-1) * dt;
+
+    // 현물이자율 (shift 적용)
+    const spot = interpolateSpot(t, spotRates) + shift;
+
+    // 할인계수
+    const df = 1 / Math.pow(1 + spot, t);
+
+    // 선도이자율
+    const spotPrev = t_prev > 0 ? interpolateSpot(t_prev, spotRates) + shift : shift;
+    const fwd = t_prev > 0
+      ? Math.pow(Math.pow(1+spot, t) / Math.pow(1+spotPrev, t_prev), 1/dt) - 1
+      : spot;
+
+    // 현금흐름
+    const fixedCF = notional * fixed_rate/100 * dt;
+    const floatCF = notional * fwd * dt;
+
+    fixedPV += fixedCF * df;
+    floatPV += floatCF * df;
+
+    cashflows.push({ t, t_prev, spot, fwd, df, fixedCF, floatCF, netCF: floatCF - fixedCF, netPV: (floatCF - fixedCF) * df });
+  }
+
+  // Par Rate 계산
+  const annuityPV = cashflows.reduce((sum, cf) => sum + cf.df * dt, 0);
+  const parRate = (1 - cashflows[cashflows.length-1].df) / annuityPV;
+
+  const fv = position === 'pay_fixed' ? (floatPV - fixedPV) : (fixedPV - floatPV);
+
+  return { fv, fixedPV, floatPV, parRate, cashflows };
+}
+
+function switchTab(name) {
+  const names = ['summary','cashflow','curve','audit','cva'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i] === name));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+function calculate() {
+  const marketRates = {
+    1: parseFloat(document.getElementById('r1').value)/100,
+    2: parseFloat(document.getElementById('r2').value)/100,
+    3: parseFloat(document.getElementById('r3').value)/100,
+    5: parseFloat(document.getElementById('r5').value)/100,
+    7: parseFloat(document.getElementById('r7').value)/100,
+    10: parseFloat(document.getElementById('r10').value)/100,
+  };
+
+  const params = {
+    notional: parseFloat(document.getElementById('notional').value),
+    maturity: parseFloat(document.getElementById('maturity').value),
+    frequency: parseInt(document.getElementById('frequency').value),
+    fixed_rate: parseFloat(document.getElementById('fixed_rate').value),
+    position: document.getElementById('position').value,
+  };
+
+  // 부트스트래핑
+  const spotRates = bootstrap(marketRates);
+
+  // IRS 계산
+  const result = calculateIRS(params, spotRates);
+
+  // 민감도
+  const resultUp = calculateIRS(params, spotRates, 0.01);
+  const resultDown = calculateIRS(params, spotRates, -0.01);
+
+  // 빈 상태 숨기기
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('summary-content').style.display = 'block';
+
+  // 결과 표시
+  const fvEl = document.getElementById('fv-value');
+  fvEl.textContent = fmt(result.fv);
+  fvEl.className = 'result-card-value ' + (result.fv >= 0 ? 'positive' : 'negative');
+  document.getElementById('fv-sub').textContent = result.fv >= 0 ? '자산 (Asset)' : '부채 (Liability)';
+
+  document.getElementById('fixed-pv').textContent = fmt(result.fixedPV);
+  document.getElementById('float-pv').textContent = fmt(result.floatPV);
+
+  const parPct = (result.parRate * 100).toFixed(4) + '%';
+  document.getElementById('par-rate').textContent = parPct;
+
+  const spread = (params.fixed_rate/100 - result.parRate) * 100;
+  const spreadEl = document.getElementById('rate-spread');
+  spreadEl.textContent = (spread >= 0 ? '+' : '') + spread.toFixed(4) + '%';
+  spreadEl.className = 'result-card-value ' + (Math.abs(spread) > 0.5 ? 'negative' : 'positive');
+
+  // 현금흐름 테이블
+  const tbody = document.getElementById('cf-tbody');
+  tbody.innerHTML = '';
+  let totalNet = 0, totalNetPV = 0;
+
+  result.cashflows.forEach(cf => {
+    const tr = document.createElement('tr');
+    const netColor = cf.netPV >= 0 ? '#10b981' : '#f43f5e';
+    tr.innerHTML = `
+      <td>${cf.t.toFixed(2)}Y</td>
+      <td>${fmtPct(cf.spot)}</td>
+      <td>${fmtPct(cf.fwd)}</td>
+      <td style="color:#94a3b8">${fmt(cf.fixedCF)}</td>
+      <td style="color:#94a3b8">${fmt(cf.floatCF)}</td>
+      <td style="color:${netColor}">${fmt(cf.netCF)}</td>
+      <td>${cf.df.toFixed(6)}</td>
+      <td style="color:${netColor};font-weight:500">${fmt(cf.netPV)}</td>
+    `;
+    tbody.appendChild(tr);
+    totalNet += cf.netCF;
+    totalNetPV += cf.netPV;
+  });
+
+  const totalRow = document.createElement('tr');
+  totalRow.className = 'total-row';
+  const totalColor = totalNetPV >= 0 ? '#10b981' : '#f43f5e';
+  totalRow.innerHTML = `
+    <td>합계</td><td>—</td><td>—</td><td>—</td><td>—</td>
+    <td style="color:${totalColor}">${fmt(totalNet)}</td>
+    <td>—</td>
+    <td style="color:${totalColor}">${fmt(totalNetPV)}</td>
+  `;
+  tbody.appendChild(totalRow);
+
+  // 수익률 곡선 테이블
+  const rateTbody = document.getElementById('rate-tbody');
+  rateTbody.innerHTML = '';
+  const maturities = [1,2,3,5,7,10];
+  maturities.forEach((T, i) => {
+    const market = marketRates[T];
+    const spot = spotRates[T];
+    const fwd = T > 1 ? getForwardRate(maturities[i-1], T, spotRates) : spot;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${T}Y</td>
+      <td>${fmtPct(market)}</td>
+      <td style="color:#38bdf8">${fmtPct(spot)}</td>
+      <td style="color:#f59e0b">${fmtPct(fwd)}</td>
+    `;
+    rateTbody.appendChild(tr);
+  });
+
+  // 차트
+  const ctx = document.getElementById('curve-chart').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+
+  const fineMaturities = [];
+  for (let t = 0.5; t <= 10; t += 0.25) fineMaturities.push(t);
+
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: fineMaturities.map(t => t.toFixed(2) + 'Y'),
+      datasets: [
+        {
+          label: '현물이자율 (Spot)',
+          data: fineMaturities.map(t => (interpolateSpot(t, spotRates) * 100).toFixed(4)),
+          borderColor: '#0ea5e9',
+          backgroundColor: 'rgba(14,165,233,0.05)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.4,
+          fill: true,
+        },
+        {
+          label: '시장금리 (입력)',
+          data: fineMaturities.map(t => (interpolateRate(t, marketRates) * 100).toFixed(4)),
+          borderColor: '#475569',
+          borderWidth: 1.5,
+          borderDash: [4,4],
+          pointRadius: 0,
+          tension: 0.4,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          labels: { color: '#94a3b8', font: { family: 'IBM Plex Mono', size: 11 } }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#475569', font: { family: 'IBM Plex Mono', size: 10 }, maxTicksLimit: 10 },
+          grid: { color: 'rgba(30,58,95,0.3)' }
+        },
+        y: {
+          ticks: {
+            color: '#475569',
+            font: { family: 'IBM Plex Mono', size: 10 },
+            callback: v => v + '%'
+          },
+          grid: { color: 'rgba(30,58,95,0.3)' }
+        }
+      }
+    }
+  });
+
+  // 감사 체크포인트
+  document.getElementById('audit-date').textContent = getEvalDateStr();
+  document.getElementById('audit-fixed').textContent = params.fixed_rate.toFixed(2) + '%';
+  document.getElementById('audit-par').textContent = (result.parRate*100).toFixed(4) + '%';
+
+  const auditSpreadEl = document.getElementById('audit-spread');
+  auditSpreadEl.textContent = (spread >= 0 ? '+' : '') + spread.toFixed(4) + '%';
+  auditSpreadEl.style.color = Math.abs(spread) > 1 ? '#f43f5e' : '#10b981';
+
+  // 민감도
+  const sensEl = document.getElementById('sensitivity-items');
+  const scenarios = [
+    { label: '+100bp (금리 상승)', fv: resultUp.fv },
+    { label: 'Base Case', fv: result.fv },
+    { label: '-100bp (금리 하락)', fv: resultDown.fv },
+  ];
+  sensEl.innerHTML = scenarios.map(s => `
+    <div class="audit-item">
+      <span class="audit-item-label">${s.label}</span>
+      <span class="audit-item-value" style="color:${s.fv >= 0 ? '#10b981' : '#f43f5e'}">${fmt(s.fv)}</span>
+    </div>
+  `).join('');
+
+  // 전역 저장 (CVA 탭에서 활용)
+  lastResult = result;
+  lastSpotRates = spotRates;
+  lastParams = params;
+}
+
+// ── CVA 관련 전역 변수 ──────────────────
+let lastResult = null;
+let lastSpotRates = null;
+let lastParams = null;
+
+function updateSpreadFromGrade() {
+  const grade = document.getElementById('credit_grade').value;
+  if (grade !== 'custom') {
+    document.getElementById('credit_spread').value = (parseFloat(grade) * 100).toFixed(2);
+  }
+}
+
+function calculateCVA() {
+  if (!lastResult || !lastSpotRates || !lastParams) {
+    alert('먼저 공정가치를 산출하세요');
+    return;
+  }
+
+  const creditSpread = parseFloat(document.getElementById('credit_spread').value) / 100;
+  const recoveryRate = parseFloat(document.getElementById('recovery_rate').value) / 100;
+  const eeMethod = document.getElementById('ee_method').value;
+  const csaType = document.getElementById('csa_type').value;
+  const lgd = 1 - recoveryRate;
+
+  // CSA 담보 조정
+  const csaFactor = csaType === 'full' ? 0 : csaType === 'partial' ? 0.5 : 1.0;
+
+  // 위험률 (Hazard Rate) = 신용스프레드 / LGD
+  const hazard = creditSpread / lgd;
+
+  // 기간별 CVA 계산
+  const cvaBreakdown = [];
+  let totalCVA = 0;
+
+  lastResult.cashflows.forEach((cf, i) => {
+    const t = cf.t;
+    const tPrev = i === 0 ? 0 : lastResult.cashflows[i-1].t;
+
+    // 기대 익스포저 (EE)
+    let ee = Math.max(cf.netPV, 0);
+    if (eeMethod === 'potential') ee = ee * 1.3; // PFE 가산
+    ee *= csaFactor; // CSA 조정
+
+    // 한계 부도확률 dPD(t) = exp(-λ*t_prev) - exp(-λ*t)
+    const pdMarginal = Math.exp(-hazard * tPrev) - Math.exp(-hazard * t);
+
+    // 할인계수
+    const spot = interpolateSpot(t, lastSpotRates);
+    const df = 1 / Math.pow(1 + spot, t);
+
+    // CVA 기여분
+    const cvaTerm = lgd * ee * pdMarginal * df;
+    totalCVA += cvaTerm;
+
+    cvaBreakdown.push({ t, tPrev, ee, pdMarginal, lgd, df, cvaTerm });
+  });
+
+  // 누적 부도확률 (만기 기준)
+  const T = lastParams.maturity;
+  const cumPD = 1 - Math.exp(-hazard * T);
+
+  // CVA 조정 공정가치
+  const adjFV = lastResult.fv - totalCVA;
+
+  // 결과 표시
+  document.getElementById('cva-empty').style.display = 'none';
+  document.getElementById('cva-result').style.display = 'block';
+
+  const cvaEl = document.getElementById('cva-value');
+  cvaEl.textContent = fmt(totalCVA);
+  cvaEl.className = 'result-card-value negative';
+
+  const adjEl = document.getElementById('cva-adj-fv');
+  adjEl.textContent = fmt(adjFV);
+  adjEl.className = 'result-card-value ' + (adjFV >= 0 ? 'positive' : 'negative');
+
+  document.getElementById('cva-ratio').textContent =
+    (totalCVA / lastParams.notional * 100).toFixed(4) + '%';
+  document.getElementById('cva-pd').textContent =
+    (cumPD * 100).toFixed(4) + '%';
+
+  // 상세 테이블
+  const tbody = document.getElementById('cva-tbody');
+  tbody.innerHTML = '';
+  let cumCVA = 0;
+  cvaBreakdown.forEach(row => {
+    cumCVA += row.cvaTerm;
+    const tr = document.createElement('tr');
+    const pct = totalCVA > 0 ? (row.cvaTerm / totalCVA * 100).toFixed(1) : '0.0';
+    tr.innerHTML = `
+      <td>${row.t.toFixed(2)}Y</td>
+      <td>${row.ee > 0 ? fmt(row.ee) : '<span style="color:var(--text3)">—</span>'}</td>
+      <td style="color:var(--amber)">${(row.pdMarginal * 100).toFixed(4)}%</td>
+      <td style="color:var(--text3)">${(row.lgd * 100).toFixed(0)}%</td>
+      <td style="color:var(--text3)">${row.df.toFixed(6)}</td>
+      <td style="color:var(--red)">${fmt(row.cvaTerm)} <span style="color:var(--text3);font-size:0.65rem">(${pct}%)</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // 민감도 분석 (+/-50bp 신용스프레드)
+  const scenarios = [
+    { label: '신용스프레드 -50bp', spread: Math.max(creditSpread - 0.005, 0.001) },
+    { label: 'Base Case', spread: creditSpread },
+    { label: '신용스프레드 +50bp', spread: creditSpread + 0.005 },
+    { label: '신용스프레드 +100bp', spread: creditSpread + 0.010 },
+  ];
+
+  const sensEl = document.getElementById('cva-sensitivity');
+  sensEl.innerHTML = scenarios.map(s => {
+    const h = s.spread / lgd;
+    let scenCVA = 0;
+    lastResult.cashflows.forEach((cf, i) => {
+      const t = cf.t;
+      const tPrev = i === 0 ? 0 : lastResult.cashflows[i-1].t;
+      let ee = Math.max(cf.netPV, 0);
+      if (eeMethod === 'potential') ee *= 1.3;
+      ee *= csaFactor;
+      const pdM = Math.exp(-h * tPrev) - Math.exp(-h * t);
+      const spot = interpolateSpot(t, lastSpotRates);
+      const df = 1 / Math.pow(1 + spot, t);
+      scenCVA += lgd * ee * pdM * df;
+    });
+    const diff = scenCVA - totalCVA;
+    return `
+      <div class="audit-item">
+        <span class="audit-item-label">${s.label} (${(s.spread*100).toFixed(2)}%)</span>
+        <span class="audit-item-value">
+          <span style="color:var(--red)">${fmt(scenCVA)}</span>
+          <span style="color:var(--text3);font-size:0.7rem;margin-left:0.5rem">(${diff >= 0 ? '+' : ''}${fmt(diff)})</span>
+        </span>
+      </div>`;
+  }).join('');
+
+  // 감사 코멘트 자동 생성
+  const auditEl = document.getElementById('cva-audit-items');
+  const cvaRatioPct = totalCVA / lastParams.notional * 100;
+  const isSignificant = cvaRatioPct > 0.1;
+  const isMaterial = Math.abs(totalCVA) / Math.abs(lastResult.fv || 1) > 0.05;
+
+  const auditItems = [
+    {
+      label: 'CVA 중요성 판단',
+      value: isSignificant
+        ? `⚠ 명목원금 대비 ${cvaRatioPct.toFixed(4)}% — 중요성 검토 필요`
+        : `✓ 명목원금 대비 ${cvaRatioPct.toFixed(4)}% — 중요성 낮음`,
+      color: isSignificant ? 'var(--amber)' : 'var(--green)',
+    },
+    {
+      label: 'K-IFRS 1113호 준거',
+      value: 'CVA는 공정가치 측정 시 신용위험 반영 의무 (IFRS 13.42)',
+      color: 'var(--text2)',
+    },
+    {
+      label: '담보 약정(CSA) 효과',
+      value: csaType === 'full' ? '완전 담보 — CVA 무시 가능'
+           : csaType === 'partial' ? `부분 담보 50% 적용 — CVA ${fmt(totalCVA/0.5*0.5)} 절감`
+           : '담보 없음 — CVA 전액 반영 필요',
+      color: csaType === 'none' ? 'var(--red)' : 'var(--green)',
+    },
+    {
+      label: '신용스프레드 출처',
+      value: `${document.getElementById('credit_grade').options[document.getElementById('credit_grade').selectedIndex].text} — 시장 CDS 또는 채권 스프레드와 대사 필요`,
+      color: 'var(--amber)',
+    },
+    {
+      label: 'Wrong-Way Risk',
+      value: '거래상대방 신용과 기초자산 간 역상관 여부 별도 검토',
+      color: 'var(--text2)',
+    },
+    {
+      label: '공정가치 대비 CVA 비율',
+      value: isMaterial
+        ? `⚠ 공정가치 대비 ${(totalCVA/Math.abs(lastResult.fv)*100).toFixed(2)}% — 재무제표 영향 유의적`
+        : `✓ 공정가치 대비 ${(totalCVA/Math.abs(lastResult.fv||1)*100).toFixed(2)}% — 영향 미미`,
+      color: isMaterial ? 'var(--red)' : 'var(--green)',
+    },
+  ];
+
+  auditEl.innerHTML = auditItems.map(item => `
+    <div class="audit-item">
+      <span class="audit-item-label">${item.label}</span>
+      <span class="audit-item-value" style="color:${item.color};text-align:right;max-width:60%">${item.value}</span>
+    </div>
+  `).join('');
+}
+
+// ── 날짜 선택 & 수익률 곡선 자동 로드 ──────────────────────────────────────
+
+function todayString() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function getEvalDateStr() {
+  const v = document.getElementById('eval-date').value;
+  if (!v) return new Date().toLocaleDateString('ko-KR');
+  const [y, m, d] = v.split('-');
+  return `${y}년 ${parseInt(m)}월 ${parseInt(d)}일`;
+}
+
+async function loadRates(dateStr) {
+  const spinner  = document.getElementById('rate-spinner');
+  const statusEl = document.getElementById('rate-status');
+  const rateIds  = ['r1','r2','r3','r5','r7','r10'];
+
+  spinner.style.display = 'block';
+  statusEl.textContent  = '시장금리 불러오는 중…';
+  statusEl.className    = 'rate-status loading';
+  rateIds.forEach(id => { document.getElementById(id).disabled = true; });
+
+  try {
+    const apiDate = dateStr.replace(/-/g, '');
+    const res  = await fetch(`http://localhost:5000/api/rates?date=${apiDate}`);
+    const data = await res.json();
+
+    if (!res.ok || !data.success) throw new Error(data.error || '데이터 없음');
+
+    const r = data.rates;
+
+    // 1Y~10Y mid 값 주입 (7Y는 5Y·10Y 선형 보간)
+    const r5mid  = r['5Y']?.mid  ?? null;
+    const r10mid = r['10Y']?.mid ?? null;
+    const r7mid  = (r5mid != null && r10mid != null)
+      ? r5mid + (r10mid - r5mid) * 0.4   // (7-5)/(10-5) = 0.4
+      : null;
+
+    const fill = { r1: r['1Y']?.mid, r2: r['2Y']?.mid, r3: r['3Y']?.mid,
+                   r5: r5mid, r7: r7mid, r10: r10mid };
+
+    rateIds.forEach(id => {
+      const val = fill[id];
+      if (val != null) {
+        const el = document.getElementById(id);
+        el.value = val.toFixed(3);
+        el.classList.remove('auto-filled');
+        void el.offsetWidth; // reflow → animation 재시작
+        el.classList.add('auto-filled');
+      }
+    });
+
+    statusEl.textContent = `✓ kofiabond ${dateStr} 최종호가 mid 반영`;
+    statusEl.className   = 'rate-status ok';
+
+    calculate(); // 자동 계산
+
+  } catch (err) {
+    statusEl.textContent = `⚠ ${err.message} — 수동 입력 모드`;
+    statusEl.className   = 'rate-status err';
+    calculate(); // fallback: 현재 입력값으로 계산
+  } finally {
+    spinner.style.display = 'none';
+    rateIds.forEach(id => { document.getElementById(id).disabled = false; });
+  }
+}
+
+window.onload = () => {
+  const evalDate = document.getElementById('eval-date');
+  evalDate.value = todayString();
+  evalDate.addEventListener('change', e => loadRates(e.target.value));
+  loadRates(todayString()); // 페이지 로드 시 오늘 날짜로 자동 로드
+};
+</script>
+</body>
+</html>
