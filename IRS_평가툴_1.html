@@ -1472,14 +1472,24 @@ function getForwardRate(t1, t2, spotRates) {
 function calculateIRS(params, spotRates, shift=0) {
   const { notional, maturity, frequency, fixed_rate, position } = params;
   const dt = 1 / frequency;
-  const periods = Math.round(maturity * frequency);
   const cashflows = [];
-
   let fixedPV = 0, floatPV = 0;
 
-  for (let i = 1; i <= periods; i++) {
-    const t = i * dt;
-    const t_prev = (i-1) * dt;
+  // 지급 시점 스케줄 생성: 정규 기간 + 잔여 stub 기간
+  // 1e-9 epsilon: 부동소수점 오차로 7.9999...가 되는 경우 방지
+  const fullPeriods = Math.floor(maturity * frequency + 1e-9);
+  const schedule = [];
+  for (let i = 1; i <= fullPeriods; i++) schedule.push(i * dt);
+  const lastRegular = fullPeriods * dt;
+  if (maturity - lastRegular > 1e-9) schedule.push(maturity); // stub 기간 추가
+
+  console.log('만기(년):', maturity, '기간수:', schedule.length,
+              '스케줄:', schedule.map(t => t.toFixed(4)));
+
+  for (let i = 0; i < schedule.length; i++) {
+    const t      = schedule[i];
+    const t_prev = i === 0 ? 0 : schedule[i - 1];
+    const periodDt = t - t_prev; // 실제 기간 길이 (stub이면 짧아짐)
 
     // 현물이자율 (shift 적용)
     const spot = interpolateSpot(t, spotRates) + shift;
@@ -1487,25 +1497,28 @@ function calculateIRS(params, spotRates, shift=0) {
     // 할인계수
     const df = 1 / Math.pow(1 + spot, t);
 
-    // 선도이자율
+    // 선도이자율 (각 기간 실제 길이로 계산)
     const spotPrev = t_prev > 0 ? interpolateSpot(t_prev, spotRates) + shift : shift;
     const fwd = t_prev > 0
-      ? Math.pow(Math.pow(1+spot, t) / Math.pow(1+spotPrev, t_prev), 1/dt) - 1
+      ? Math.pow(Math.pow(1 + spot, t) / Math.pow(1 + spotPrev, t_prev), 1 / periodDt) - 1
       : spot;
 
-    // 현금흐름
-    const fixedCF = notional * fixed_rate/100 * dt;
-    const floatCF = notional * fwd * dt;
+    // 현금흐름 (실제 기간 길이 periodDt 적용)
+    const fixedCF = notional * fixed_rate / 100 * periodDt;
+    const floatCF = notional * fwd * periodDt;
 
     fixedPV += fixedCF * df;
     floatPV += floatCF * df;
 
-    cashflows.push({ t, t_prev, spot, fwd, df, fixedCF, floatCF, netCF: floatCF - fixedCF, netPV: (floatCF - fixedCF) * df });
+    cashflows.push({ t, t_prev, periodDt, spot, fwd, df,
+                     fixedCF, floatCF,
+                     netCF: floatCF - fixedCF,
+                     netPV: (floatCF - fixedCF) * df });
   }
 
-  // Par Rate 계산
-  const annuityPV = cashflows.reduce((sum, cf) => sum + cf.df * dt, 0);
-  const parRate = (1 - cashflows[cashflows.length-1].df) / annuityPV;
+  // Par Rate: annuity PV도 실제 periodDt로 계산
+  const annuityPV = cashflows.reduce((sum, cf) => sum + cf.df * cf.periodDt, 0);
+  const parRate = (1 - cashflows[cashflows.length - 1].df) / annuityPV;
 
   const fv = position === 'pay_fixed' ? (floatPV - fixedPV) : (fixedPV - floatPV);
 
@@ -2103,14 +2116,19 @@ function runQualitativeTest() {
 function calcFixedLoanPV(loanRate, params, spotRates, shift) {
   const { notional, maturity, frequency } = params;
   const dt = 1 / frequency;
-  const periods = Math.round(maturity * frequency);
+  const fullPeriods = Math.floor(maturity * frequency + 1e-9);
+  const schedule = [];
+  for (let i = 1; i <= fullPeriods; i++) schedule.push(i * dt);
+  if (maturity - fullPeriods * dt > 1e-9) schedule.push(maturity);
   let pv = 0;
-  for (let i = 1; i <= periods; i++) {
-    const t   = i * dt;
-    const spot = interpolateSpot(t, spotRates) + shift;
-    const df  = 1 / Math.pow(1 + spot, t);
-    pv += notional * loanRate * dt * df;
-    if (i === periods) pv += notional * df;
+  for (let i = 0; i < schedule.length; i++) {
+    const t        = schedule[i];
+    const t_prev   = i === 0 ? 0 : schedule[i - 1];
+    const periodDt = t - t_prev;
+    const spot     = interpolateSpot(t, spotRates) + shift;
+    const df       = 1 / Math.pow(1 + spot, t);
+    pv += notional * loanRate * periodDt * df;
+    if (i === schedule.length - 1) pv += notional * df; // 원금 상환
   }
   return pv;
 }
