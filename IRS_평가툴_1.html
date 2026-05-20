@@ -860,7 +860,7 @@ input[type="range"]:focus { border: none; box-shadow: none; }
     </div>
 
     <div class="section-divider">수익률 곡선 (KRW)</div>
-    <p style="font-size:12px;color:#8B95A1;margin:-0.4rem 0 0.9rem;line-height:1.6;letter-spacing:-0.01em">본 수익률 곡선은 부트스트래핑을 통해 선도이자율을 산출하며,<br>변동 레그의 미래 현금흐름 추정에 사용됩니다.</p>
+    <p style="font-size:12px;color:#8B95A1;margin:-0.4rem 0 0.9rem;line-height:1.6;letter-spacing:-0.01em">부트스트래핑으로 시장금리에서 현물이자율 곡선을 산출하고,<br>현물이자율 곡선을 바탕으로 선도이자율을 계산하여 변동 레그 추정에 사용됩니다.</p>
 
     <div class="curve-inputs">
       <div class="curve-input-item">
@@ -977,7 +977,7 @@ input[type="range"]:focus { border: none; box-shadow: none; }
 
     <div class="tab-content" id="tab-curve">
       <div class="chart-area">
-        <div class="table-title">현물이자율 곡선 (Bootstrapping)</div>
+        <div class="table-title">현물이자율 곡선 (시장금리 → 부트스트래핑 역산)</div>
         <canvas id="curve-chart" height="200"></canvas>
       </div>
       <div class="table-section" style="margin-top:1rem">
@@ -1292,8 +1292,8 @@ input[type="range"]:focus { border: none; box-shadow: none; }
     <div class="notes-section">
       <div class="notes-section-title" style="color:var(--green)">✅ 감사 목적 적합</div>
       <ul class="notes-ok-list">
-        <li>부트스트래핑 기반 현물이자율 산출 — 평가보고서 검증 로직과 동일</li>
-        <li>선도금리 기반 변동 레그 추정 — 감사 절차와 동일한 방식</li>
+        <li>부트스트래핑으로 시장금리 → 현물이자율 역산, 현물이자율 곡선에서 선도이자율 순차 산출 — 평가보고서 검증 로직과 동일</li>
+        <li>선도이자율 기반 변동 레그 현금흐름 추정 — 감사 절차와 동일한 방식</li>
         <li>FV = 변동 레그 PV − 고정 레그 PV — IRS 평가 핵심 공식</li>
         <li>CVA 구조 (LGD × EE × dPD × DF) — K-IFRS 1113호 준거</li>
         <li>민감도 분석 (±100bp) — 감사 증거 보완 자료 활용 가능</li>
